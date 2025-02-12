@@ -10,6 +10,9 @@ wip/*
 *.cmxs
 *.cmxa
 
+# compiled stuff
+main
+
 # ocamlbuild working directory
 _build/
 

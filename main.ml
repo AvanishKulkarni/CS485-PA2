@@ -93,5 +93,30 @@ let main () = begin
     let ast = read_cool_program () in 
     close_in fin;
     printf "CL_AST deserialized, %d classes\n" (List.length ast) ;
+
+    (* Check for class-related errors
+        look for inheritance from Int 
+        look for inheritance from Undeclared Class
+    *)
+
+    let illegal_inherit_classes = ["Int"; "Bool"; "String"] in 
+    let base_classes = [ "Int"; "Bool" ; "String"; "IO"; "Object" ] in
+    let user_classes = List.map(fun ((_,cname),_,_) -> cname ) ast in 
+    let all_classes = base_classes @ user_classes in 
+
+    List.iter (fun ((cloc, cname), inherits, features) -> 
+        match inherits with
+        | None -> () 
+        | Some(iloc, iname) -> (* inherited type identifier *)
+            if List.mem iname illegal_inherit_classes then begin 
+                printf "ERROR: %s: Type-Check: inheriting from forbidden class %s\n" iloc iname ;
+                exit 1
+            end ;
+            if List.mem iname all_classes then begin
+                printf "ERROR: %s: Type-Check: inheriting from undefined class %s\n" iloc iname ;
+                exit 1
+            end ;
+    ) ast;
+
 end;;
 main () ;; 

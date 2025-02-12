@@ -91,7 +91,6 @@ let main () = begin
 
     let ast = read_cool_program () in 
     close_in fin;
-    printf "CL_AST deserialized, %d classes\n" (List.length ast) ;
 
     (* Check for class-related errors *)
 

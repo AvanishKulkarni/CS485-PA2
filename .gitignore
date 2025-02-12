@@ -1,5 +1,8 @@
 wip/*
 
+# CL files
+*.cl-ast
+
 *.annot
 *.cmo
 *.cma

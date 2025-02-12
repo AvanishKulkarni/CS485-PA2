@@ -41,7 +41,6 @@ let main () = begin
         let name = read () in 
         (loc, name)
 
-
     and read_cool_class () = (* Class *)
         let cname = read_id() in 
         let inherits = match read() with 
@@ -94,15 +93,18 @@ let main () = begin
     close_in fin;
     printf "CL_AST deserialized, %d classes\n" (List.length ast) ;
 
-    (* Check for class-related errors
-        look for inheritance from Int 
-        look for inheritance from Undeclared Class
-    *)
+    (* Check for class-related errors *)
 
     let illegal_inherit_classes = ["Int"; "Bool"; "String"] in 
     let base_classes = [ "Int"; "Bool" ; "String"; "IO"; "Object" ] in
     let user_classes = List.map(fun ((_,cname),_,_) -> cname ) ast in 
     let all_classes = base_classes @ user_classes in 
+    let all_classes = List.sort compare all_classes in 
+
+    (* 
+        look for inheritance from Int 
+        look for inheritance from Undeclared Class
+    *)
 
     List.iter (fun ((cloc, cname), inherits, features) -> 
         match inherits with
@@ -112,11 +114,50 @@ let main () = begin
                 printf "ERROR: %s: Type-Check: inheriting from forbidden class %s\n" iloc iname ;
                 exit 1
             end ;
-            if List.mem iname all_classes then begin
+            if not (List.mem iname all_classes) then begin
                 printf "ERROR: %s: Type-Check: inheriting from undefined class %s\n" iloc iname ;
                 exit 1
             end ;
     ) ast;
+
+    (* Error checking complete *)
+
+    (* Emit CL-TYPE File *)
+
+    let cltname = (Filename.chop_extension fname) ^ ".cl-type" in 
+    let fout = open_out cltname in 
+
+    let rec output_exp (eloc, ekind) = 
+        fprintf fout "%s\n" eloc;
+        match ekind with 
+        | Integer (ival) -> fprintf fout "integer\n%s\n" ival 
+    in
+
+    fprintf fout "class_map\n%d\n" (List.length all_classes);
+    List.iter (fun cname -> 
+        fprintf fout "%s\n" cname ;
+        let attributes = 
+            try 
+                let _, inherits, features = List.find (fun ((_,cname2),_,_) -> cname = cname2) ast in 
+                List.filter (fun feature -> match feature with 
+                | Attribute _ -> true 
+                | Method _ -> false 
+                ) features
+            with Not_found -> 
+                [] 
+        in 
+        fprintf fout "%d\n" (List.length attributes) ;
+        List.iter (fun attr -> match attr with 
+        | Attribute ((_, aname),(_, atype), None) -> 
+            fprintf fout "no_initializer\n%s\n%s\n" aname atype
+        | Attribute ((_, aname),(_, atype), Some init) ->
+            fprintf fout "initializer\n%s\n%s\n" aname atype ;
+            output_exp init
+        | Method _ -> failwith "method unexpected"
+        ) attributes ;
+    ) all_classes;
+
+    close_out fout ; 
 
 end;;
 main () ;; 

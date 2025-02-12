@@ -2,6 +2,7 @@ wip/*
 
 # CL files
 *.cl-ast
+*.cl-type
 
 *.annot
 *.cmo

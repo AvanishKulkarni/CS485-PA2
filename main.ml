@@ -13,9 +13,28 @@ and feature =
 and formal = id * cool_type
 and exp = loc * exp_kind 
 and exp_kind = 
+    | Assign of id * exp (* assign *)
+    | Dynamic_Dispatch of exp * id * exp list 
+    | Static_Dispatch of exp * id * id * exp list
+    | Self_Dispatch of id * exp list 
+    | If of exp * exp * exp 
+    | While of exp * exp 
+    | Block of exp list 
+    | New of id 
+    | Isvoid of exp 
+    | Plus of exp * exp 
+    | Minus of exp * exp 
+    | Times of exp * exp 
+    | Divide of exp * exp 
+    | Lt of exp * exp 
+    | Le of exp * exp 
+    | Eq of exp * exp 
+    | Not of exp 
+    | Negate of exp 
     | Integer of string (* int *)
     | String of string (* string *)
-    | Bool of string (* bool - true *)
+    | Identifier of id 
+    | Bool of string (* bool *)
 
 let main () = begin 
     (* De-serialize CL-AST file *)

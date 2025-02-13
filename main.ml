@@ -14,6 +14,8 @@ and formal = id * cool_type
 and exp = loc * exp_kind 
 and exp_kind = 
     | Integer of string (* int *)
+    | String of string (* string *)
+    | Bool of string (* bool - true *)
 
 let main () = begin 
     (* De-serialize CL-AST file *)
@@ -84,9 +86,19 @@ let main () = begin
         | "integer" ->
             let ival = read () in 
             Integer(ival)
+        | "string" -> 
+            let sval = read () in 
+            String(sval)
+        | "true" ->
+            let bval = "true" in 
+            Bool(bval)
+        | "false" -> 
+            let bval = "false" in 
+            Bool(bval)
         | x -> 
             failwith ("invalid expression kind: " ^ x)
         in (eloc, ekind)
+
     in 
 
     let ast = read_cool_program () in 
@@ -130,6 +142,8 @@ let main () = begin
         fprintf fout "%s\n" eloc;
         match ekind with 
         | Integer (ival) -> fprintf fout "integer\n%s\n" ival 
+        | String (sval) -> fprintf fout "string\n%s\n" sval
+        | Bool (bval) -> fprintf fout "%s\n" bval
     in
 
     fprintf fout "class_map\n%d\n" (List.length all_classes);

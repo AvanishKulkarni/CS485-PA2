@@ -148,6 +148,10 @@ let main () = begin
                 printf "ERROR: %s: Type-Check: inheriting from undefined class %s\n" iloc iname ;
                 exit 1
             end ;
+            if List.mem iname user_classes && List.mem iname base_classes then begin
+              printf "ERROR: %s: Type-Check: class %s redefined\n" iloc iname ;
+              exit 1
+            end ;
     ) ast;
 
     (* Error checking complete *)

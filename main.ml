@@ -137,7 +137,11 @@ let main () = begin
     *)
 
     List.iter (fun ((cloc, cname), inherits, features) -> 
-        match inherits with
+      if List.mem cname user_classes && List.mem cname base_classes then begin (* Need to add a way to check for duplicates in user_classes - would have same error*)
+        printf "ERROR: %s: Type-Check: class %s redefined\n" cloc cname ;
+        exit 1
+      end ;
+      match inherits with
         | None -> () 
         | Some(iloc, iname) -> (* inherited type identifier *)
             if List.mem iname illegal_inherit_classes then begin 
@@ -148,10 +152,7 @@ let main () = begin
                 printf "ERROR: %s: Type-Check: class %s inherits from unknown class %s\n" iloc cname iname ;
                 exit 1
             end ;
-            if List.mem iname user_classes && List.mem iname base_classes then begin
-              printf "ERROR: %s: Type-Check: class %s redefined\n" iloc iname ;
-              exit 1
-            end ;
+            
     ) ast;
 
     (* Error checking complete *)

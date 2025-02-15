@@ -145,7 +145,7 @@ let main () = begin
                 exit 1
             end ;
             if not (List.mem iname all_classes) then begin
-                printf "ERROR: %s: Type-Check: class %s from undefined class %s\n" iloc cname iname ;
+                printf "ERROR: %s: Type-Check: class %s inherits from unknown class %s\n" iloc cname iname ;
                 exit 1
             end ;
             if List.mem iname user_classes && List.mem iname base_classes then begin

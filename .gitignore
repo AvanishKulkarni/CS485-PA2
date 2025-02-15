@@ -36,3 +36,7 @@ setup.log
 
 # Local OPAM switch
 _opam/
+
+#testing files
+reference_error.txt
+test_error.txt

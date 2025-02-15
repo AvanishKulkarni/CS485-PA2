@@ -141,11 +141,11 @@ let main () = begin
         | None -> () 
         | Some(iloc, iname) -> (* inherited type identifier *)
             if List.mem iname illegal_inherit_classes then begin 
-                printf "ERROR: %s: Type-Check: inheriting from forbidden class %s\n" iloc iname ;
+                printf "ERROR: %s: Type-Check: class %s inherits from %s\n" iloc cname iname ;
                 exit 1
             end ;
             if not (List.mem iname all_classes) then begin
-                printf "ERROR: %s: Type-Check: inheriting from undefined class %s\n" iloc iname ;
+                printf "ERROR: %s: Type-Check: class %s from undefined class %s\n" iloc cname iname ;
                 exit 1
             end ;
             if List.mem iname user_classes && List.mem iname base_classes then begin
@@ -163,10 +163,10 @@ let main () = begin
 
     let rec output_exp (eloc, ekind) = 
         fprintf fout "%s\n" eloc;
-        match ekind with 
+        (* match ekind with 
         | Integer (ival) -> fprintf fout "integer\n%s\n" ival 
         | String (sval) -> fprintf fout "string\n%s\n" sval
-        | Bool (bval) -> fprintf fout "%s\n" bval
+        | Bool (bval) -> fprintf fout "%s\n" bval *)
     in
 
     fprintf fout "class_map\n%d\n" (List.length all_classes);

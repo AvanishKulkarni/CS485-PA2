@@ -35,6 +35,12 @@ and exp_kind =
     | String of string (* string *)
     | Identifier of id 
     | Bool of string (* bool *)
+    | Let of binding list * exp
+    | Case of exp * case_elem list
+and binding = 
+    | Binding of id * id * (exp option)
+and case_elem = 
+    | Case_Elem of id * id * exp
 
 let main () = begin 
     (* De-serialize CL-AST file *)
@@ -98,22 +104,123 @@ let main () = begin
         let ftype = read_id () in 
         (fname, ftype)
 
+    and read_let_binding () = 
+        match read () with 
+        | "let_binding_no_init" -> 
+            let letvar = read_id () in 
+            let lettype = read_id () in
+            Binding(letvar, lettype, None) 
+        | "let_binding_init" -> 
+            let letvar = read_id () in 
+            let lettype = read_id () in 
+            let letval = read_exp () in 
+            Binding(letvar, lettype, Some(letval))
+        | x -> failwith ("impossible binding " ^ x)
+
+    and read_case_elem () = 
+        let csid = read_id () in 
+        let cstype = read_id () in 
+        let csbody = read_exp () in 
+        Case_Elem(csid, cstype, csbody)
+                
     and read_exp () = 
         let eloc = read () in 
         let ekind = match read () with 
         (* do the rest of the types *)
-        | "integer" ->
+        | "assign" -> 
+            let avar = read_id () in 
+            let aexp = read_exp () in 
+            Assign(avar, aexp)
+        | "dynamic_dispatch" ->
+            let ddexp = read_exp () in 
+            let ddmethod = read_id () in 
+            let ddargs = read_list read_exp in 
+            Dynamic_Dispatch(ddexp, ddmethod, ddargs)
+        | "static_dispatch" ->
+            let sde = read_exp () in 
+            let sdid = read_id () in 
+            let sdmethod = read_id () in 
+            let sdargs = read_list read_exp in 
+            Static_Dispatch(sde, sdid, sdmethod, sdargs)
+        | "self_dispatch" ->
+            let sdmethod = read_id () in 
+            let sdargs = read_list read_exp in 
+            Self_Dispatch(sdmethod, sdargs)
+        | "if" ->
+            let ipred = read_exp () in 
+            let ithen = read_exp () in
+            let ielse = read_exp () in 
+            If(ipred, ithen, ielse)
+        | "while" ->
+            let wpred = read_exp () in 
+            let wbody = read_exp () in 
+            While(wpred, wbody)
+        | "block" ->
+            let bbody = read_list read_exp in
+            Block(bbody)
+        | "new" -> 
+            let nclass = read_id () in 
+            New(nclass)
+        | "isvoid" ->
+            let ivexp = read_exp () in 
+            Isvoid(ivexp)
+        | "plus" ->
+            let x = read_exp () in 
+            let y = read_exp () in 
+            Plus(x, y)
+        | "minus" -> 
+            let x = read_exp () in 
+            let y = read_exp () in 
+            Minus(x, y)
+        | "times" ->
+            let x = read_exp () in 
+            let y = read_exp () in 
+            Times(x, y)
+        | "divide" ->
+            let x = read_exp () in 
+            let y = read_exp () in
+            Divide(x, y)
+        | "lt" -> 
+            let x = read_exp () in 
+            let y = read_exp () in 
+            Lt(x, y)
+        | "le" ->
+            let x = read_exp () in 
+            let y = read_exp () in 
+            Le(x, y)
+        | "eq" -> 
+            let x = read_exp () in 
+            let y = read_exp () in
+            Eq(x, y)
+        | "not" ->
+            let x = read_exp () in 
+            Not(x)
+        | "negate" -> 
+            let x = read_exp () in 
+            Negate(x)
+        | "integer" -> 
             let ival = read () in 
             Integer(ival)
         | "string" -> 
             let sval = read () in 
             String(sval)
+        | "identifier" -> 
+            let idvar = read_id () in 
+            Identifier(idvar)
         | "true" ->
             let bval = "true" in 
             Bool(bval)
         | "false" -> 
             let bval = "false" in 
             Bool(bval)
+        | "let" -> 
+            let letbinding = read_list read_let_binding in 
+            let letbody = read_exp () in 
+            Let(letbinding, letbody)
+        | "case" ->
+            let csexp = read_exp () in 
+            let cselemlist = read_list read_case_elem in 
+            Case(csexp, cselemlist)
         | x -> 
             failwith ("invalid expression kind: " ^ x)
         in (eloc, ekind)

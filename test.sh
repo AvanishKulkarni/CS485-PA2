@@ -2,13 +2,17 @@
 if [ main.ml -nt main ]; then
     ocamlc main.ml -o main 
 fi
-count=0
-total=0
+goodCount=0
+badCount=0
+goodTotal=0
+badTotal=0
 function run_tests() {
     rm -f *.cl-ast
     rm -f *.cl-type
-    rm -f test_cases/*.cl-ast
-    rm -f test_cases/*.cl-type
+    rm -f good/*.cl-ast
+    rm -f good/*.cl-type
+    rm -f bad/*.cl-ast
+    rm -f bad/*.cl-type
     rm -f reference_error.txt
     rm -f test_error.txt
     cool --parse "$1"
@@ -22,23 +26,39 @@ function run_tests() {
     fi
     if [ $? -eq 0 ]; then
         echo "Passed $1"
-        count=$((count + 1))
+        return 0
     else 
         echo "Failed $1"
+        return 1
     fi
-    total=$((total +1))
 }
 
 if [ -n "$1" ]; then 
     run_tests $1
 else
     
-    for file in test_cases/*; do
-        run_tests $file
+    for file in good/*; do
+        if run_tests $file; then
+            goodCount=$((goodCount + 1))
+        fi
+        goodTotal=$((goodTotal + 1))
         echo ""
     done
-    echo ""
+    
+    for file in bad/*; do
+        if run_tests $file; then
+            badCount=$((badCount + 1))
+        fi
+        badTotal=$((badTotal + 1))
+        echo ""
+    done
+    echo "Passed $goodCount/$goodTotal good test cases"
+    echo "Passed $badCount/$badTotal bad test cases"
+    count=$((goodCount + badCount))
+    total=$((goodTotal + badTotal))
     echo "Passed $count/$total test cases"
-    rm -f test_cases/*.cl-ast
-    rm -f test_cases/*.cl-type
+    rm -f good/*.cl-ast
+    rm -f good/*.cl-type
+    rm -f bad/*.cl-ast
+    rm -f bad/*.cl-type
 fi

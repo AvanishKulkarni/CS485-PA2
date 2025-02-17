@@ -137,11 +137,11 @@ let main () = begin
             let ddargs = read_list read_exp in 
             Dynamic_Dispatch(ddexp, ddmethod, ddargs)
         | "static_dispatch" ->
-            let sde = read_exp () in 
+            let sdexp = read_exp () in 
             let sdid = read_id () in 
             let sdmethod = read_id () in 
             let sdargs = read_list read_exp in 
-            Static_Dispatch(sde, sdid, sdmethod, sdargs)
+            Static_Dispatch(sdexp, sdid, sdmethod, sdargs)
         | "self_dispatch" ->
             let sdmethod = read_id () in 
             let sdargs = read_list read_exp in 

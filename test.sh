@@ -57,8 +57,8 @@ else
     count=$((goodCount + badCount))
     total=$((goodTotal + badTotal))
     echo "Passed $count/$total test cases"
-    rm -f good/*.cl-ast
-    rm -f good/*.cl-type
-    rm -f bad/*.cl-ast
-    rm -f bad/*.cl-type
 fi
+rm -f good/*.cl-ast
+rm -f good/*.cl-type
+rm -f bad/*.cl-ast
+rm -f bad/*.cl-type

@@ -130,14 +130,14 @@ let main () = begin
     let user_classes = List.map(fun ((_,cname),_,_) -> cname ) ast in 
     let all_classes = base_classes @ user_classes in 
     let all_classes = List.sort compare all_classes in 
-
+    let inheritance = Hashtbl.create 255 in
     (* 
         look for inheritance from Int 
         look for inheritance from Undeclared Class
     *)
-
+    
     List.iter (fun ((cloc, cname), inherits, features) -> 
-      if List.mem cname user_classes && List.mem cname base_classes then begin (* Need to add a way to check for duplicates in user_classes - would have same error*)
+      if List.mem cname user_classes && List.mem cname base_classes then begin (* Need to add a way to check for duplicates in user_classes - would have same*)
         printf "ERROR: %s: Type-Check: class %s redefined\n" cloc cname ;
         exit 1
       end ;
@@ -152,9 +152,38 @@ let main () = begin
                 printf "ERROR: %s: Type-Check: class %s inherits from unknown class %s\n" iloc cname iname ;
                 exit 1
             end ;
+            Hashtbl.add inheritance cname iname;
             
     ) ast;
-
+    (* Checking for inhertance cycle *)
+    let visited = ref [] in
+    let cycle = ref [] in
+    let rec cycle_check cname = 
+      if List.exists (fun x -> x = cname ) !cycle then true
+      else if List.exists (fun x -> x = cname ) !visited then false
+      else begin
+          cycle := cname :: !cycle;
+          if Hashtbl.mem inheritance cname then 
+              cycle_check (Hashtbl.find inheritance cname)
+          else begin
+            visited := cname :: !visited;
+            cycle := List.tl !cycle;
+            false
+          end
+      end  
+    in
+    List.iter (fun(cname) ->
+      if cycle_check cname then begin
+        printf "ERROR: 0: Type-Check: inheritance cycle:" ;
+        let sorted_cycle = List.sort compare !cycle in
+        let reverse_sorted_cycle = List.rev sorted_cycle in
+        List.iter (fun (x) ->
+          printf " %s" x
+        ) reverse_sorted_cycle ;
+        printf "\n";
+        exit 1 
+      end
+    ) user_classes ;
     (* Error checking complete *)
 
     (* Emit CL-TYPE File *)

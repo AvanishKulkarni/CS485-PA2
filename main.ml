@@ -259,30 +259,34 @@ let main () = begin
                 printf "ERROR: %s: Type-Check: class %s inherits from unknown class %s\n" iloc cname iname ;
                 exit 1
             end ;
-            Hashtbl.add inheritance cname iname;
+            Hashtbl.add inheritance iname cname;
             
     ) ast;
     (* Checking for inhertance cycle *)
     let visited = ref [] in
     let cycle = ref [] in
     let rec cycle_check cname = 
-      if List.exists (fun x -> x = cname ) !cycle then true
-      else if List.exists (fun x -> x = cname ) !visited then false
+      if List.exists (fun x -> x = cname ) !cycle then false
+      else if List.exists (fun x -> x = cname ) !visited then true
       else begin
           cycle := cname :: !cycle;
-          if Hashtbl.mem inheritance cname then 
-              cycle_check (Hashtbl.find inheritance cname)
-          else begin
+          let res =
+            if Hashtbl.mem inheritance cname then 
+                let y = Hashtbl.find_all inheritance cname in
+                let y = List.sort compare y in
+                List.for_all (fun t -> cycle_check t) y
+            else
+              true
+            in
             visited := cname :: !visited;
             cycle := List.tl !cycle;
-            false
-          end
-      end  
+            res 
+      end
     in
     List.iter (fun(cname) ->
-      if cycle_check cname then begin
+      if (cycle_check cname) = false then begin
         printf "ERROR: 0: Type-Check: inheritance cycle:" ;
-        let sorted_cycle = List.sort compare !cycle in
+        let sorted_cycle = List.sort compare !visited in
         let reverse_sorted_cycle = List.rev sorted_cycle in
         List.iter (fun (x) ->
           printf " %s" x
@@ -290,7 +294,8 @@ let main () = begin
         printf "\n";
         exit 1 
       end
-    ) user_classes ;
+    ) all_classes ;
+    let all_classes = List.rev !visited in (* top sorted *)
     (* Error checking complete *)
 
     (* Emit CL-TYPE File *)

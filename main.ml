@@ -312,6 +312,7 @@ let main () = begin
     in
 
     fprintf fout "class_map\n%d\n" (List.length all_classes);
+    let sorted_all_classes = List.sort compare all_classes in 
     List.iter (fun cname -> 
         fprintf fout "%s\n" cname ;
         let attributes = 
@@ -333,7 +334,7 @@ let main () = begin
             output_exp init
         | Method _ -> failwith "method unexpected"
         ) attributes ;
-    ) all_classes;
+    ) sorted_all_classes;
 
     close_out fout ; 
 

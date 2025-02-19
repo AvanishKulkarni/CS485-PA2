@@ -33,6 +33,11 @@ function run_tests() {
     fi
 }
 
+rm -f good/*.cl-ast
+rm -f good/*.cl-type
+rm -f bad/*.cl-ast
+rm -f bad/*.cl-type
+
 if [ -n "$1" ]; then 
     run_tests $1
 else
@@ -58,7 +63,3 @@ else
     total=$((goodTotal + badTotal))
     echo "Passed $count/$total test cases"
 fi
-rm -f good/*.cl-ast
-rm -f good/*.cl-type
-rm -f bad/*.cl-ast
-rm -f bad/*.cl-type

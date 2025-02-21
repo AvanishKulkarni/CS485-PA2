@@ -2,6 +2,21 @@
 
 open Printf
 
+type static_type = 
+| Class of string 
+| SELF_TYPE of string 
+
+let type_to_str t = match t with 
+| Class(x) -> x
+| SELF_TYPE(c) -> "SELF_TYPE"
+
+let rec is_subtype t1 t2 = 
+    match t1, t2 with 
+    | Class(x), Class(y) when x = y -> true
+    | Class(x), Class("Object") -> true
+    | Class(x), Class(y) -> false (* check parent map *)
+    | _, _ -> false (* self type behavior *)
+
 type cool_program = cool_class list
 and loc = string (* actually and int *)
 and id = loc * string
@@ -11,7 +26,14 @@ and feature =
     | Attribute of id * cool_type * (exp option)
     | Method of id * (formal list) * cool_type * exp
 and formal = id * cool_type
-and exp = loc * exp_kind 
+
+
+and exp = {
+    loc : loc;
+    exp_kind : exp_kind;
+    mutable static_type : static_type option;
+}
+
 and exp_kind = 
     | Assign of id * exp (* assign *)
     | Dynamic_Dispatch of exp * id * exp list 
@@ -223,7 +245,11 @@ let main () = begin
             Case(csexp, cselemlist)
         | x -> 
             failwith ("invalid expression kind: " ^ x)
-        in (eloc, ekind)
+        in {
+            loc = eloc;
+            exp_kind = ekind;
+            static_type = None;
+        }
 
     in 
 
@@ -303,13 +329,40 @@ let main () = begin
     let cltname = (Filename.chop_extension fname) ^ ".cl-type" in 
     let fout = open_out cltname in 
 
-    let rec output_exp (eloc, ekind) = 
-        fprintf fout "%s\n" eloc; (*
-        match ekind with 
-        | Dynamic_Dispatch (exp, id, exp list) -> 
+    let rec output_exp e =
+        fprintf fout "%s\n" e.loc; 
+        (match e.static_type with 
+        | None -> failwith "failed to annotate type somehow"
+        | Some(Class(c)) -> fprintf fout "%s\n" c
+        | Some(SELF_TYPE(c)) -> fprintf fout "TODO SELF_TYPE"
+        );
+        (
+        match e.exp_kind with 
+        | Assign (id, exp) -> fprintf fout "assign...\n"
+        | Dynamic_Dispatch (exp, ddmethod, args) -> fprintf fout "dynamic...\n"
+        | Static_Dispatch (exp, sdtype, sdmethod, args) -> fprintf fout "static...\n"
+        | Self_Dispatch (sdmethod, args) -> fprintf fout "self dispatch...\n"
+        | If (pred, thenexp, elseexp) -> fprintf fout "if...\n"
+        | While (pred, bodyexp) -> fprintf fout "while...\n"
+        | Block (body) -> fprintf fout "block...\n"
+        | New (newclass) -> fprintf fout "new...\n"
+        | Isvoid (e) -> fprintf fout "isvoid...\n"
+        | Plus (x, y) -> fprintf fout "plus...\n"
+        | Minus (x, y) -> fprintf fout "minus...\n"
+        | Times (x, y) -> fprintf fout "times...\n"
+        | Divide (x, y) -> fprintf fout "divide...\n"
+        | Lt (x, y) -> fprintf fout "lt...\n"
+        | Le (x, y) -> fprintf fout "le...\n"
+        | Eq (x, y) -> fprintf fout "eq...\n"
+        | Not (x) -> fprintf fout "not...\n"
+        | Negate (x) -> fprintf fout "negate...\n"
         | Integer (ival) -> fprintf fout "integer\n%s\n" ival 
         | String (sval) -> fprintf fout "string\n%s\n" sval
-        | Bool (bval) -> fprintf fout "%s\n" bval *)
+        | Identifier (var) -> fprintf fout "identifier...\n"
+        | Bool (bval) -> fprintf fout "%s\n" bval
+        | Let (bindlist, body) -> fprintf fout "let...\n"
+        | Case (caseexp, elemlist) -> fprintf fout "case...\n"
+        );
     in
 
     fprintf fout "class_map\n%d\n" (List.length all_classes);

@@ -304,8 +304,9 @@ let main () = begin
     let fout = open_out cltname in 
 
     let rec output_exp (eloc, ekind) = 
-        fprintf fout "%s\n" eloc;
-        (* match ekind with 
+        fprintf fout "%s\n" eloc; (*
+        match ekind with 
+        | Dynamic_Dispatch (exp, id, exp list) -> 
         | Integer (ival) -> fprintf fout "integer\n%s\n" ival 
         | String (sval) -> fprintf fout "string\n%s\n" sval
         | Bool (bval) -> fprintf fout "%s\n" bval *)

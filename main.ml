@@ -262,6 +262,8 @@ let main () = begin
     let all_classes = List.sort compare all_classes in 
     let inheritance = Hashtbl.create 255 in
 
+    
+
     (* Check for missing main in Main *)
     if not (List.mem "Main" all_classes) then begin 
         printf "ERROR: 0: Type-Check: class Main not found\n";
@@ -332,7 +334,7 @@ let main () = begin
 
     (* Check for attribute redefitions *)
 
-    (* Check for redefiniting inherited *)
+    (* Check for redefining inherited attributes, methods incorrectly *)
 
     (* Check for self and SELF_TYPE errors in classes/methods *)
 

@@ -26,14 +26,11 @@ and feature =
     | Attribute of id * cool_type * (exp option)
     | Method of id * (formal list) * cool_type * exp
 and formal = id * cool_type
-
-
 and exp = {
     loc : loc;
     exp_kind : exp_kind;
     mutable static_type : static_type option;
 }
-
 and exp_kind = 
     | Assign of id * exp (* assign *)
     | Dynamic_Dispatch of exp * id * exp list 
@@ -264,6 +261,13 @@ let main () = begin
     let all_classes = base_classes @ user_classes in 
     let all_classes = List.sort compare all_classes in 
     let inheritance = Hashtbl.create 255 in
+
+    (* Check for missing main in Main *)
+    if not (List.mem "Main" all_classes) then begin 
+        printf "ERROR: 0: Type-Check: class Main not found\n";
+        exit 1
+    end;
+
     (* 
         look for inheritance from Int 
         look for inheritance from Undeclared Class
@@ -288,6 +292,7 @@ let main () = begin
             Hashtbl.add inheritance iname cname;
             
     ) ast;
+
     (* Checking for inhertance cycle *)
     let visited = ref [] in
     let cycle = ref [] in
@@ -322,6 +327,17 @@ let main () = begin
       end
     ) all_classes ;
     let all_classes = List.rev !visited in (* top sorted *)
+
+    (* Check for duplicate methods *)
+
+    (* Check for attribute redefitions *)
+
+    (* Check for redefiniting inherited *)
+
+    (* Check for self and SELF_TYPE errors in classes/methods *)
+
+    (* MORE *)
+
     (* Error checking complete *)
 
     (* Emit CL-TYPE File *)
@@ -332,36 +348,36 @@ let main () = begin
     let rec output_exp e =
         fprintf fout "%s\n" e.loc; 
         (match e.static_type with 
-        | None -> failwith "failed to annotate type somehow"
+        | None -> fprintf fout ""
         | Some(Class(c)) -> fprintf fout "%s\n" c
-        | Some(SELF_TYPE(c)) -> fprintf fout "TODO SELF_TYPE"
+        | Some(SELF_TYPE(c)) -> fprintf fout ""
         );
         (
         match e.exp_kind with 
-        | Assign (id, exp) -> fprintf fout "assign...\n"
-        | Dynamic_Dispatch (exp, ddmethod, args) -> fprintf fout "dynamic...\n"
-        | Static_Dispatch (exp, sdtype, sdmethod, args) -> fprintf fout "static...\n"
-        | Self_Dispatch (sdmethod, args) -> fprintf fout "self dispatch...\n"
-        | If (pred, thenexp, elseexp) -> fprintf fout "if...\n"
-        | While (pred, bodyexp) -> fprintf fout "while...\n"
-        | Block (body) -> fprintf fout "block...\n"
-        | New (newclass) -> fprintf fout "new...\n"
-        | Isvoid (e) -> fprintf fout "isvoid...\n"
-        | Plus (x, y) -> fprintf fout "plus...\n"
-        | Minus (x, y) -> fprintf fout "minus...\n"
-        | Times (x, y) -> fprintf fout "times...\n"
-        | Divide (x, y) -> fprintf fout "divide...\n"
-        | Lt (x, y) -> fprintf fout "lt...\n"
-        | Le (x, y) -> fprintf fout "le...\n"
-        | Eq (x, y) -> fprintf fout "eq...\n"
-        | Not (x) -> fprintf fout "not...\n"
-        | Negate (x) -> fprintf fout "negate...\n"
+        | Assign (id, exp) -> fprintf fout "assign\n"
+        | Dynamic_Dispatch (exp, ddmethod, args) -> fprintf fout ""
+        | Static_Dispatch (exp, sdtype, sdmethod, args) -> fprintf fout ""
+        | Self_Dispatch (sdmethod, args) -> fprintf fout ""
+        | If (pred, thenexp, elseexp) -> fprintf fout ""
+        | While (pred, bodyexp) -> fprintf fout ""
+        | Block (body) -> fprintf fout ""
+        | New (newclass) -> fprintf fout ""
+        | Isvoid (e) -> fprintf fout ""
+        | Plus (x, y) -> fprintf fout ""
+        | Minus (x, y) -> fprintf fout ""
+        | Times (x, y) -> fprintf fout ""
+        | Divide (x, y) -> fprintf fout ""
+        | Lt (x, y) -> fprintf fout ""
+        | Le (x, y) -> fprintf fout ""
+        | Eq (x, y) -> fprintf fout ""
+        | Not (x) -> fprintf fout ""
+        | Negate (x) -> fprintf fout ""
         | Integer (ival) -> fprintf fout "integer\n%s\n" ival 
         | String (sval) -> fprintf fout "string\n%s\n" sval
-        | Identifier (var) -> fprintf fout "identifier...\n"
+        | Identifier (var) -> fprintf fout ""
         | Bool (bval) -> fprintf fout "%s\n" bval
-        | Let (bindlist, body) -> fprintf fout "let...\n"
-        | Case (caseexp, elemlist) -> fprintf fout "case...\n"
+        | Let (bindlist, body) -> fprintf fout "l"
+        | Case (caseexp, elemlist) -> fprintf fout ""
         );
     in
 

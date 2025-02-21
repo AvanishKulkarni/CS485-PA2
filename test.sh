@@ -40,6 +40,11 @@ rm -f bad/*.cl-type
 
 if [ -n "$1" ]; then 
     run_tests $1
+    cool --parse "$1"
+    echo "Our Output"
+    ./main "$1-ast"
+    echo "Referenced Compiler"
+    cool "$1"
 else
     
     for file in good/*; do

@@ -57,9 +57,6 @@ and exp_kind =
     | Bool of string (* bool *)
     | Let of binding list * exp
     | Case of exp * case_elem list
-    | IOMethod of string
-    | ObjectMethod of string
-    | StringMethod of string
 and binding = 
     | Binding of id * id * (exp option)
 and case_elem = 
@@ -270,26 +267,14 @@ let main () = begin
     Hashtbl.add inheritance "Object" "Bool";
     Hashtbl.add inheritance "Object" "String";
     Hashtbl.add inheritance "Object" "IO";
-    let class_map_attr = Hashtbl.create 255 in
-    let class_map_method = Hashtbl.create 255 in
+    let class_map = Hashtbl.create 255 in
     (* Check for missing main in Main *)
     if not (List.mem "Main" all_classes) then begin 
         printf "ERROR: 0: Type-Check: class Main not found\n";
         exit 1
     end;
 
-    Hashtbl.add class_map_method "Object" (("0", "abort"), [], ("0", "Object"), {loc="0"; exp_kind= ObjectMethod(""); static_type=None});
-    Hashtbl.add class_map_method "Object" (("0", "type_name"), [], ("0", "String"), {loc="0"; exp_kind= ObjectMethod(""); static_type=None});
-    Hashtbl.add class_map_method "Object" (("0", "copy"), [], ("0", "SELF_TYPE"), {loc="0"; exp_kind= ObjectMethod(""); static_type=None});
-
-    Hashtbl.add class_map_method "IO" (("0", "out_string"), [("0", "x"), ("0", "String")], ("0", "SELF_TYPE"), {loc="0"; exp_kind=IOMethod(""); static_type=None});
-    Hashtbl.add class_map_method "IO" (("0", "out_int"), [("0", "x"), ("0", "Int")], ("0", "SELF_TYPE"), {loc="0"; exp_kind=IOMethod(""); static_type=None});
-    Hashtbl.add class_map_method "IO" (("0", "in_string"), [], ("0", "String"), {loc="0"; exp_kind=IOMethod(""); static_type=None});
-    Hashtbl.add class_map_method "IO" (("0", "in_int"), [], ("0", "Int"), {loc="0"; exp_kind=IOMethod(""); static_type=None});
-
-    Hashtbl.add class_map_method "String" (("0", "length"), [], ("0", "Int"), {loc="0"; exp_kind=StringMethod(""); static_type=None});
-    Hashtbl.add class_map_method "String" (("0", "concat"), [("0", "s"), ("0", "String")], ("0", "String"), {loc="0"; exp_kind=StringMethod(""); static_type=None});
-    Hashtbl.add class_map_method "String" (("0", "substr"), [("0", "i"), ("0", "Int"); ("0", "l"), ("0", "Int")], ("0", "String"), {loc="0"; exp_kind=StringMethod(""); static_type=None});
+    
 
     (* 
         look for inheritance from Int 
@@ -325,26 +310,9 @@ let main () = begin
             Hashtbl.add inheritance iname cname;
       
             (* iterate through features, match to attribute or method, add to hashtbl *)
-      match features with
-        | [] -> printf ""
-        | lst ->
-            List.iter(fun feat ->
-                match feat with
-                | Attribute(aid, atype, Some(aexp)) -> Hashtbl.add class_map_attr cname (aid, atype, Some(aexp));
-                | Attribute(aid, atype, None) -> Hashtbl.add class_map_attr cname (aid, atype, None);
-                | Method(mid, formal_list, mtype, mexp) -> Hashtbl.add class_map_method cname (mid, formal_list, mtype, mexp);
-            ) lst;
+       Hashtbl.add class_map cname features 
         
     ) ast;
-
-    (* Check for main() method in Main *)
-    let main_methods = Hashtbl.find_all class_map_method "Main" in 
-    let method_names = List.map (fun ((_,name),_,_,_) -> name) main_methods in 
-    if not(List.mem "main" method_names) then begin 
-        printf "ERROR: 0: Type-Check: class Main method main not found\n";
-        exit 1
-    end;
-     
 
     (* Checking for inhertance cycle *)
     let visited = ref [] in
@@ -379,121 +347,12 @@ let main () = begin
         exit 1 
       end
     ) all_classes ;
-    
-    (* Debug printing function to print out all attributes, methods for all classes *)
-    (* List.iter (fun cname ->
-        printf "%s: " cname;
-        let feat_list = Hashtbl.find_all class_map cname in 
-        List.iter (fun feat ->
-            match feat with 
-            | ((_,name), t2, None) -> printf "%s, " name
-            | ((_,name), t2, Some(o)) -> printf "%s, " name
-        ) feat_list;
-        let meth_list = Hashtbl.find_all class_map_method cname in 
-        List.iter (fun meth ->
-            match meth with 
-            | ((_,name),_,_,_) -> printf "%s, " name
-        ) meth_list;
-        printf("\n");
-    ) all_classes; *)   
-
-    (* Check for duplicate attributes, methods with each class *)
-    List.iter (fun cname ->
-        let attr_list = Hashtbl.find_all class_map_attr cname in 
-        let attr_seen = ref SeenSet.empty in 
-        List.iter (fun feat ->
-            match feat with 
-            (* Duplicate attribute name detected *)
-            | ((loc,name),_, None) -> if SeenSet.mem name !attr_seen then begin
-                printf "ERROR: %s: Type-Check: attribute %s redefined\n" loc name ;
-                exit 1
-            end;
-            | ((loc,name),_,Some(_)) -> if SeenSet.mem name !attr_seen then begin 
-                printf "ERROR: %s: Type-Check: attribute %s redefined\n" loc name ;
-                exit 1
-            end;
-            attr_seen := SeenSet.add name !attr_seen;
-        ) attr_list;
-        let meth_list = Hashtbl.find_all class_map_method cname in 
-        let meth_seen = ref SeenSet.empty in 
-        List.iter (fun meth ->
-            match meth with 
-            (* Duplicate method name detected *)
-            | ((loc,mname),formal_list,_,_) -> if SeenSet.mem mname !meth_seen then begin 
-                printf "ERROR: %s: Type-Check: class %s redefines method %s\n" loc cname mname ;
-                exit 1;
-            end else
-                (* Check for duplicates in formal list *)
-                let formal_seen = ref SeenSet.empty in 
-                List.iter (fun ((loc, pname), _) -> 
-                    if SeenSet.mem pname !formal_seen then begin 
-                        printf "ERROR: %s: Type-Check: class %s has method %s with duplicate formal parameter named %s\n" loc cname mname pname;
-                        exit 1;
-                    end;
-                    formal_seen := SeenSet.add pname !formal_seen;
-                ) formal_list;
-            meth_seen := SeenSet.add mname !meth_seen;
-        ) (List.rev meth_list);
-    ) all_classes;
-    List.iter (fun ((_,name),formals,_,_)->
-        if (name = "main") && (List.length formals) != 0 then begin
-            printf "ERROR: 0: Type-Check: class Main method main with 0 parameters not found\n";
-            exit 1; 
-        end;
-    ) (Hashtbl.find_all class_map_method "Main");
-    
-    let rec feature_check iname cname = 
-        let inherited_methods = Hashtbl.find_all class_map_method iname in
-        let inherited_attributes = Hashtbl.find_all class_map_attr iname in
-        let inherited_attributes_names = List.map (fun ((_, name), _, _) -> name) inherited_attributes in
-        let methods = Hashtbl.find_all class_map_method cname in
-        let attributes = Hashtbl.find_all class_map_attr cname in
-        List.iter (fun ((aloc, name), _, _) ->
-            if (List.mem name inherited_attributes_names) then begin
-                printf "ERROR: %s: Type-Check: class %s redefines attribute %s\n" aloc cname name;
-                exit 1;
-            end;
-        ) attributes;
-        List.iter (fun ((mloc, mname), formal_list, (typeloc, mtype),_) ->
-            List.iter (fun ((imloc, imname), iformal_list, (itypeloc, imtype),_) ->
-                if (mname = imname) then begin
-                    if (List.length formal_list != List.length iformal_list) then begin
-                        printf "ERROR: %s: Type-Check: class %s redefines method %s and changes number of formals\n" mloc cname mname;
-                        exit 1;
-                    end;
-                    if (mtype != imtype) then begin
-                        printf "ERROR: %s: Type-Check: class %s redefines method %s and changes return type (from %s to %s)\n" typeloc cname mname imtype mtype;
-                        exit 1;
-                    end;
-                    List.iter2 (fun ((fploc,fname), (_, ftype)) ((_,ifname), (_, iftype)) ->
-                        if (ftype != iftype) then begin
-                            printf "ERROR: %s: Type-Check: class %s redefines method %s and changes type of formal %s\n" fploc cname mname fname;
-                            exit 1;
-                        end;
-                    ) formal_list iformal_list;
-                end;
-            ) inherited_methods;
-        ) methods;
-        List.iter (fun meth ->
-            Hashtbl.add class_map_method cname meth;
-        ) inherited_methods;
-        List.iter (fun attr ->
-            Hashtbl.add class_map_attr cname attr;
-        ) inherited_attributes;
-        let child_classes = Hashtbl.find_all inheritance cname in
-        List.iter (fun cl ->
-            feature_check cname cl;
-        ) child_classes;
-    in
-    List.iter (fun cl -> 
-        feature_check "Object" cl;
-    ) (Hashtbl.find_all inheritance "Object");
-
     let all_classes = List.rev !visited in (* top sorted *)
     (* List.iter (fun (cname) -> 
         printf "%s " cname;
     ) all_classes;
     printf "\n"; *)
+    (* Check for duplicate methods *)
 
     (* Check for attribute redefitions *)
 
@@ -520,32 +379,29 @@ let main () = begin
         (
         match e.exp_kind with 
         | Assign (id, exp) -> fprintf fout "assign\n"
-        | Dynamic_Dispatch (exp, ddmethod, args) -> ()
-        | Static_Dispatch (exp, sdtype, sdmethod, args) -> ()
-        | Self_Dispatch (sdmethod, args) -> ()
-        | If (pred, thenexp, elseexp) -> ()
-        | While (pred, bodyexp) -> ()
-        | Block (body) -> ()
-        | New (newclass) -> ()
-        | Isvoid (e) -> ()
-        | Plus (x, y) -> ()
-        | Minus (x, y) -> ()
-        | Times (x, y) -> ()
-        | Divide (x, y) -> ()
-        | Lt (x, y) -> ()
-        | Le (x, y) -> ()
-        | Eq (x, y) -> ()
-        | Not (x) -> ()
-        | Negate (x) -> ()
+        | Dynamic_Dispatch (exp, ddmethod, args) -> fprintf fout ""
+        | Static_Dispatch (exp, sdtype, sdmethod, args) -> fprintf fout ""
+        | Self_Dispatch (sdmethod, args) -> fprintf fout ""
+        | If (pred, thenexp, elseexp) -> fprintf fout ""
+        | While (pred, bodyexp) -> fprintf fout ""
+        | Block (body) -> fprintf fout ""
+        | New (newclass) -> fprintf fout ""
+        | Isvoid (e) -> fprintf fout ""
+        | Plus (x, y) -> fprintf fout ""
+        | Minus (x, y) -> fprintf fout ""
+        | Times (x, y) -> fprintf fout ""
+        | Divide (x, y) -> fprintf fout ""
+        | Lt (x, y) -> fprintf fout ""
+        | Le (x, y) -> fprintf fout ""
+        | Eq (x, y) -> fprintf fout ""
+        | Not (x) -> fprintf fout ""
+        | Negate (x) -> fprintf fout ""
         | Integer (ival) -> fprintf fout "integer\n%s\n" ival 
         | String (sval) -> fprintf fout "string\n%s\n" sval
-        | Identifier (var) -> ()
+        | Identifier (var) -> fprintf fout ""
         | Bool (bval) -> fprintf fout "%s\n" bval
-        | Let (bindlist, body) -> ()
-        | Case (caseexp, elemlist) -> ()
-        | StringMethod (_) -> ()
-        | IOMethod (_) -> ()
-        | ObjectMethod (_) -> ()
+        | Let (bindlist, body) -> fprintf fout "l"
+        | Case (caseexp, elemlist) -> fprintf fout ""
         );
     in
 

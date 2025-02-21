@@ -261,7 +261,6 @@ let main () = begin
     let all_classes = base_classes @ user_classes in 
     let all_classes = List.sort compare all_classes in 
     let inheritance = Hashtbl.create 255 in
-
     
 
     (* Check for missing main in Main *)
@@ -281,7 +280,7 @@ let main () = begin
         exit 1
       end ;
       match inherits with
-        | None -> () 
+        | None -> Hashtbl.add inheritance "Object" cname (* inherits from Object by default *)
         | Some(iloc, iname) -> (* inherited type identifier *)
             if List.mem iname illegal_inherit_classes then begin 
                 printf "ERROR: %s: Type-Check: class %s inherits from %s\n" iloc cname iname ;

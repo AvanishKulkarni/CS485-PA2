@@ -1,6 +1,7 @@
 (* Allen Cabrera, Avanish Kulkarni - PA2C2 *)
 
 open Printf
+module SeenSet = Set.Make(String)
 
 type static_type = 
 | Class of string 
@@ -255,19 +256,25 @@ let main () = begin
 
     (* Check for class-related errors *)
 
-    let illegal_inherit_classes = ["Int"; "Bool"; "String"] in 
+    let illegal_inherit_classes = ["Int"; "Bool"; "String"] in
     let base_classes = [ "Int"; "Bool" ; "String"; "IO"; "Object" ] in
     let user_classes = List.map(fun ((_,cname),_,_) -> cname ) ast in 
     let all_classes = base_classes @ user_classes in 
     let all_classes = List.sort compare all_classes in 
+    let seen = ref SeenSet.empty in 
     let inheritance = Hashtbl.create 255 in
-    
-
+    Hashtbl.add inheritance "Object" "Int";
+    Hashtbl.add inheritance "Object" "Bool";
+    Hashtbl.add inheritance "Object" "String";
+    Hashtbl.add inheritance "Object" "IO";
+    let class_map = Hashtbl.create 255 in
     (* Check for missing main in Main *)
     if not (List.mem "Main" all_classes) then begin 
         printf "ERROR: 0: Type-Check: class Main not found\n";
         exit 1
     end;
+
+    
 
     (* 
         look for inheritance from Int 
@@ -275,10 +282,20 @@ let main () = begin
     *)
     
     List.iter (fun ((cloc, cname), inherits, features) -> 
+      
       if List.mem cname user_classes && List.mem cname base_classes then begin (* Need to add a way to check for duplicates in user_classes - would have same*)
         printf "ERROR: %s: Type-Check: class %s redefined\n" cloc cname ;
         exit 1
       end ;
+
+      (* Check for duplicate classes *)
+      if SeenSet.mem cname !seen then begin
+        printf "ERROR: %s: Type-Check: class %s redefined\n" cloc cname ;
+        exit 1
+      end;
+
+      seen := SeenSet.add cname !seen;
+
       match inherits with
         | None -> Hashtbl.add inheritance "Object" cname (* inherits from Object by default *)
         | Some(iloc, iname) -> (* inherited type identifier *)
@@ -291,7 +308,10 @@ let main () = begin
                 exit 1
             end ;
             Hashtbl.add inheritance iname cname;
-            
+      
+            (* iterate through features, match to attribute or method, add to hashtbl *)
+       Hashtbl.add class_map cname features 
+        
     ) ast;
 
     (* Checking for inhertance cycle *)
@@ -328,7 +348,10 @@ let main () = begin
       end
     ) all_classes ;
     let all_classes = List.rev !visited in (* top sorted *)
-
+    (* List.iter (fun (cname) -> 
+        printf "%s " cname;
+    ) all_classes;
+    printf "\n"; *)
     (* Check for duplicate methods *)
 
     (* Check for attribute redefitions *)

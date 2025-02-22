@@ -437,6 +437,13 @@ let main () = begin
         end;
     ) (Hashtbl.find_all class_map_method "Main");
     
+ 
+
+            
+            
+            
+            
+
     let rec feature_check iname cname = 
         let inherited_methods = Hashtbl.find_all class_map_method iname in
         let inherited_attributes = Hashtbl.find_all class_map_attr iname in

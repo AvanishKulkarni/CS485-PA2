@@ -12,22 +12,6 @@ let type_to_str t = match t with
 | Class(x) -> x
 | SELF_TYPE(c) -> "SELF_TYPE"
 
-(*
-let rec is_subtype t1 t2 = 
-    match t1, t2 with 
-    | Class(x), Class(y) when x = y -> true
-    | Class(x), Class("Object") -> true
-    | Class(x), Class(y) -> (* check parent map *)
-        let rec dfs_helper vert = (* checking inheritance map *)
-            if vert = y then true
-            else
-                let children = Hashtbl.find_all inheritance vert in
-                List.exists dfs_helper children
-            in 
-            dfs_helper x
-    | _, _ -> false (* self type behavior *)
-*)
-
 type cool_program = cool_class list
 and loc = string (* actually and int *)
 and id = loc * string
@@ -74,6 +58,25 @@ and binding =
     | Binding of id * cool_type * (exp option)
 and case_elem = 
     | Case_Elem of id * id * exp
+
+let inheritance : (static_type, static_type) Hashtbl.t = Hashtbl.create 255
+let class_map_attr = Hashtbl.create 255
+let class_map_method = Hashtbl.create 255
+
+let rec is_subtype t1 t2 = 
+    match t1, t2 with 
+    | Class(x), Class(y) when x = y -> true
+    | Class(x), Class("Object") -> true
+    | Class(x), Class(y) -> (* check parent map *)
+        let rec dfs_helper vert = (* checking inheritance map *)
+            if vert = Class(y) then true
+            else
+                let children = Hashtbl.find_all inheritance vert in
+                List.exists dfs_helper children
+            in 
+            dfs_helper (Class x)
+    | _, _ -> false (* self type behavior *)
+
 
 let main () = begin 
     (* De-serialize CL-AST file *)
@@ -261,42 +264,37 @@ let main () = begin
 
     (* Check for class-related errors *)
 
-    let illegal_inherit_classes = ["Int"; "Bool"; "String"] in
-    let base_classes = ["Int"; "Bool" ; "String"; "IO"; "Object"] in 
-    let user_classes = List.map(fun ((_,cname),_,_) ->  cname ) ast in 
+    let illegal_inherit_classes = [Class "Int"; Class "Bool"; Class "String"] in
+    let base_classes = [Class "Int"; Class "Bool" ; Class "String"; Class "IO"; Class "Object"] in 
+    let user_classes = List.map(fun ((_,cname),_,_) ->  Class cname ) ast in 
     let all_classes = base_classes @ user_classes in 
     let all_classes = List.sort compare all_classes in 
     let seen = ref SeenSet.empty in 
-    let inheritance = Hashtbl.create 255 in
+    
 
-    let test_table = Hashtbl.create 10 in 
+    Hashtbl.add inheritance (Class "Object") (Class "Int");
+    Hashtbl.add inheritance (Class "Object") (Class "Bool");
+    Hashtbl.add inheritance (Class "Object") (Class "String");
+    Hashtbl.add inheritance (Class "Object") (Class "IO");
 
-    Hashtbl.add test_table ("Hello") ("World");
-
-    Hashtbl.add inheritance ("Object") ("Int");
-    Hashtbl.add inheritance ("Object") ("Bool");
-    Hashtbl.add inheritance ("Object") ("String");
-    Hashtbl.add inheritance ("Object") ("IO");
-    let class_map_attr = Hashtbl.create 255 in
-    let class_map_method = Hashtbl.create 255 in
     (* Check for missing main in Main *)
-    if not (List.mem ( "Main") all_classes) then begin 
+    if not (List.mem (Class "Main") all_classes) then begin 
         (* printf "ERROR: 0: Type-Check: class Main not found\n";
         exit 1 *)
     end;
 
-    Hashtbl.add class_map_method "Object" (("0", "abort"), [], ("0", "Object"), {loc="0"; exp_kind= ObjectMethod(""); static_type=None});
-    Hashtbl.add class_map_method "Object" (("0", "type_name"), [], ("0", "String"), {loc="0"; exp_kind= ObjectMethod(""); static_type=None});
-    Hashtbl.add class_map_method "Object" (("0", "copy"), [], ("0", "SELF_TYPE"), {loc="0"; exp_kind= ObjectMethod(""); static_type=None});
+    Hashtbl.add class_map_method (Class "Object") (("0", "abort"), [], ("0", "Object"), {loc="0"; exp_kind= ObjectMethod(""); static_type=None});
+    Hashtbl.add class_map_method (Class "Object") (("0", "type_name"), [], ("0", "String"), {loc="0"; exp_kind= ObjectMethod(""); static_type=None});
+    Hashtbl.add class_map_method (Class "Object") (("0", "copy"), [], ("0", "SELF_TYPE"), {loc="0"; exp_kind= ObjectMethod(""); static_type=None});
 
-    Hashtbl.add class_map_method "IO" (("0", "out_string"), [("0", "x"), ("0", "String")], ("0", "SELF_TYPE"), {loc="0"; exp_kind=IOMethod(""); static_type=None});
-    Hashtbl.add class_map_method "IO" (("0", "out_int"), [("0", "x"), ("0", "Int")], ("0", "SELF_TYPE"), {loc="0"; exp_kind=IOMethod(""); static_type=None});
-    Hashtbl.add class_map_method "IO" (("0", "in_string"), [], ("0", "String"), {loc="0"; exp_kind=IOMethod(""); static_type=None});
-    Hashtbl.add class_map_method "IO" (("0", "in_int"), [], ("0", "Int"), {loc="0"; exp_kind=IOMethod(""); static_type=None});
+    Hashtbl.add class_map_method (Class "IO") (("0", "out_string"), [("0", "x"), ("0", "String")], ("0", "SELF_TYPE"), {loc="0"; exp_kind=IOMethod(""); static_type=None});
+    Hashtbl.add class_map_method (Class "IO") (("0", "out_int"), [("0", "x"), ("0", "Int")], ("0", "SELF_TYPE"), {loc="0"; exp_kind=IOMethod(""); static_type=None});
+    Hashtbl.add class_map_method (Class "IO") (("0", "in_string"), [], ("0", "String"), {loc="0"; exp_kind=IOMethod(""); static_type=None});
+    Hashtbl.add class_map_method (Class "IO") (("0", "in_int"), [], ("0", "Int"), {loc="0"; exp_kind=IOMethod(""); static_type=None});
 
-    Hashtbl.add class_map_method "String" (("0", "length"), [], ("0", "Int"), {loc="0"; exp_kind=StringMethod(""); static_type=None});
-    Hashtbl.add class_map_method "String" (("0", "concat"), [("0", "s"), ("0", "String")], ("0", "String"), {loc="0"; exp_kind=StringMethod(""); static_type=None});
-    Hashtbl.add class_map_method "String" (("0", "substr"), [("0", "i"), ("0", "Int"); ("0", "l"), ("0", "Int")], ("0", "String"), {loc="0"; exp_kind=StringMethod(""); static_type=None});
+    Hashtbl.add class_map_method (Class "String") (("0", "length"), [], ("0", "Int"), {loc="0"; exp_kind=StringMethod(""); static_type=None});
+    Hashtbl.add class_map_method (Class "String") (("0", "concat"), [("0", "s"), ("0", "String")], ("0", "String"), {loc="0"; exp_kind=StringMethod(""); static_type=None});
+    Hashtbl.add class_map_method (Class "String") (("0", "substr"), [("0", "i"), ("0", "Int"); ("0", "l"), ("0", "Int")], ("0", "String"), {loc="0"; exp_kind=StringMethod(""); static_type=None});
 
     (* 
         look for inheritance from Int 
@@ -319,7 +317,7 @@ let main () = begin
       seen := SeenSet.add cname !seen;
 
       match inherits with
-        | None -> Hashtbl.add inheritance ("Object") ( cname) (* inherits from Object by default *)
+        | None -> Hashtbl.add inheritance (Class "Object") ( cname) (* inherits from Object by default *)
         | Some(iloc, iname) -> (* inherited type identifier *)
             if List.mem iname illegal_inherit_classes then begin 
                 (* printf "ERROR: %s: Type-Check: class %s inherits from %s\n" iloc cname iname ;
@@ -345,15 +343,9 @@ let main () = begin
     ) ast;
 
     (* Check for main() method in Main *)
-    let main_methods = Hashtbl.find_all class_map_method "Main" in 
-    let method_names = List.map (fun ((_,name),_,_,_) -> name) main_methods in 
-    if not(List.mem "main" method_names) then begin 
-        (* printf "ERROR: 0: Type-Check: class Main method main not found\n";
-        exit 1 *)
-    end;
      
 
-    (* Checking for inhertance cycle *)
+    (* Checking for inheritance cycle *)
     let visited = ref [] in
     let cycle = ref [] in
     let rec cycle_check cname = 
@@ -435,20 +427,6 @@ let main () = begin
     Find x on inheritance tree, traverse down the tree 
     until you find y => return true, else return false 
     *)
-
-    (* Is x a subtype of y *)
-    let is_subtype x y = 
-        match x, y with 
-        | x, y when x = y -> true (* same type *)
-        | x, "Object" -> true (* subtype object *)
-        | x, y -> let rec dfs_helper vert = (* checking inheritance map *)
-            if vert = x then true
-            else
-                let children = Hashtbl.find_all inheritance vert in
-                List.exists dfs_helper children
-            in 
-            dfs_helper y
-    in
 
     (* Type Checking features *)
     let rec feature_check iname cname = 

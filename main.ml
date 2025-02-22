@@ -436,7 +436,7 @@ let main () = begin
         ) (List.rev meth_list);
     ) all_classes;
     List.iter (fun ((_,name),formals,_,_)->
-        if (name = "main") && (List.length formals) != 0 then begin
+        if (name = "main") && (List.length formals) <> 0 then begin
             printf "ERROR: 0: Type-Check: class Main method main with 0 parameters not found\n";
             exit 1; 
         end;
@@ -457,16 +457,16 @@ let main () = begin
         List.iter (fun ((mloc, mname), formal_list, (typeloc, mtype),_) ->
             List.iter (fun ((imloc, imname), iformal_list, (itypeloc, imtype),_) ->
                 if (mname = imname) then begin
-                    if (List.length formal_list != List.length iformal_list) then begin
+                    if (List.length formal_list <> List.length iformal_list) then begin
                         printf "ERROR: %s: Type-Check: class %s redefines method %s and changes number of formals\n" mloc cname mname;
                         exit 1;
                     end;
-                    if (mtype != imtype) then begin
+                    if (mtype <> imtype) then begin
                         printf "ERROR: %s: Type-Check: class %s redefines method %s and changes return type (from %s to %s)\n" typeloc cname mname imtype mtype;
                         exit 1;
                     end;
                     List.iter2 (fun ((fploc,fname), (_, ftype)) ((_,ifname), (_, iftype)) ->
-                        if (ftype != iftype) then begin
+                        if (ftype <> iftype) then begin
                             printf "ERROR: %s: Type-Check: class %s redefines method %s and changes type of formal %s\n" fploc cname mname fname;
                             exit 1;
                         end;

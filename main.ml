@@ -61,7 +61,7 @@ and exp_kind =
     | ObjectMethod of string
     | StringMethod of string
 and binding = 
-    | Binding of id * id * (exp option)
+    | Binding of id * cool_type * (exp option)
 and case_elem = 
     | Case_Elem of id * id * exp
 
@@ -437,12 +437,21 @@ let main () = begin
         end;
     ) (Hashtbl.find_all class_map_method "Main");
     
- 
-
-            
-            
-            
-            
+    (* 
+    Figure out if something is a subtype of another
+    Find x on inheritance tree, traverse down the tree 
+    until you find y => return true, else return false 
+    *)
+(*  
+    let is_subtype x y = 
+        let rec dfs_helper vert = 
+            if vert = y then true
+            else
+                let children = Hashtbl.find_all inheritance vert in
+                List.exists dfs_helper children
+        in 
+        dfs_helper x
+    in *)
 
     let rec feature_check iname cname = 
         let inherited_methods = Hashtbl.find_all class_map_method iname in
@@ -533,30 +542,59 @@ let main () = begin
         );
         (
         match e.exp_kind with 
-        | Assign (id, exp) -> fprintf fout "assign\n"
-        | Dynamic_Dispatch (exp, ddmethod, args) -> ()
-        | Static_Dispatch (exp, sdtype, sdmethod, args) -> ()
-        | Self_Dispatch (sdmethod, args) -> ()
-        | If (pred, thenexp, elseexp) -> ()
-        | While (pred, bodyexp) -> ()
-        | Block (body) -> ()
+        | Assign ((id_loc, exp_name), exp) -> 
+            fprintf fout "assign\n%s\n%s\n" id_loc exp_name; output_exp exp;
+        | Dynamic_Dispatch (exp, (meth_loc, meth_name), args) -> 
+            fprintf fout "dynamic_dispatch\n";
+            output_exp exp;
+            fprintf fout "%s\n%s\n%d\n" meth_loc meth_name (List.length args);
+            List.iter (fun exp -> output_exp exp;) args;
+        | Static_Dispatch (exp, (stcl_loc, stcl_name), (sdmt_loc, sdmt_name), args) -> 
+            fprintf fout "dynamic_dispatch\n";
+            output_exp exp;
+            fprintf fout "%s\n%s\n" stcl_loc stcl_name;
+            fprintf fout "%s\n%s\n%d\n" sdmt_loc sdmt_name (List.length args);
+            List.iter (fun exp -> output_exp exp;) args;
+        | Self_Dispatch ((sdloc, sdname), args) -> 
+            fprintf fout "dynamic_dispatch\n%s\n%s\n%d\n" sdloc sdname (List.length args);
+            List.iter (fun exp -> output_exp exp;) args;
+        | If (pred, thenexp, elseexp) -> fprintf fout "if\n"; output_exp thenexp; output_exp elseexp;
+        | While (pred, bodyexp) -> fprintf fout "while\n"; output_exp pred; output_exp bodyexp;
+        | Block (body) -> fprintf fout "block\n"; List.iter (fun exp -> output_exp exp;) body;
         | New ((loc, name)) -> fprintf fout "new\n%s\n%s\n" loc name
-        | Isvoid (e) -> ()
-        | Plus (x, y) -> ()
-        | Minus (x, y) -> ()
-        | Times (x, y) -> ()
-        | Divide (x, y) -> ()
-        | Lt (x, y) -> ()
-        | Le (x, y) -> ()
-        | Eq (x, y) -> ()
-        | Not (x) -> ()
-        | Negate (x) -> ()
+        | Isvoid (e) -> fprintf fout "isvoid\n"; output_exp e;
+        | Plus (x, y) -> fprintf fout "plus\n"; output_exp x; output_exp y;
+        | Minus (x, y) -> fprintf fout "minus\n"; output_exp x; output_exp y;
+        | Times (x, y) -> fprintf fout "times\n"; output_exp x; output_exp y;
+        | Divide (x, y) -> fprintf fout "divide\n"; output_exp x; output_exp y;
+        | Lt (x, y) -> fprintf fout "lt\n"; output_exp x; output_exp y;
+        | Le (x, y) -> fprintf fout "le\n"; output_exp x; output_exp y;
+        | Eq (x, y) -> fprintf fout "eq\n"; output_exp x; output_exp y;
+        | Not (x) -> fprintf fout "not\n"; output_exp x;
+        | Negate (x) -> fprintf fout "negate\n"; output_exp x;
         | Integer (ival) -> fprintf fout "integer\n%s\n" ival 
         | String (sval) -> fprintf fout "string\n%s\n" sval
-        | Identifier (var) -> ()
+        | Identifier (loc, name) -> fprintf fout "identifier\n%s\n%s\n" loc name
         | Bool (bval) -> fprintf fout "%s\n" bval
-        | Let (bindlist, body) -> ()
-        | Case (caseexp, elemlist) -> ()
+        | Let (bindlist, body) -> 
+            fprintf fout "let\n%d\n" (List.length bindlist);
+            List.iter (fun (b: binding)->
+                match b with 
+                | Binding((bloc, bname), (tloc, tname), Some(exp)) -> 
+                    fprintf fout "let_binding_init\n%s\n%s\n%s\n%s\n" bloc bname tloc tname;
+                    output_exp exp;
+                | Binding((bloc, bname), (tloc, tname), None) -> 
+                    fprintf fout "let_binding_no_init\n%s\n%s\n%s\n%s\n" bloc bname tloc tname;
+            ) bindlist;
+            output_exp body;
+        | Case (caseexp, elemlist) -> 
+            fprintf fout "case\n";
+            output_exp caseexp;
+            fprintf fout "%d\n" (List.length elemlist);
+            List.iter (fun (Case_Elem((cid, cname), (ctid, ctname), exp)) -> 
+                fprintf fout "%s\n%s\n%s\n%s\n" cid cname ctid ctname;
+                output_exp exp;
+            ) elemlist;
         | StringMethod (_) -> ()
         | IOMethod (_) -> ()
         | ObjectMethod (_) -> ()

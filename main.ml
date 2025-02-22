@@ -420,7 +420,7 @@ let main () = begin
             (* printf "ERROR: 0: Type-Check: class Main method main with 0 parameters not found\n";
             exit 1;  *)
         end;
-    ) (Hashtbl.find_all class_map_method "Main");
+    ) (Hashtbl.find_all class_map_method (Class "Main"));
     
     (* 
     Figure out if something is a subtype of another
@@ -446,7 +446,7 @@ let main () = begin
                 (* printf "ERROR: %s: Type-Check: class %s redefines attribute %s\n" aloc cname name;
                 exit 1; *)
             end;
-            if not ((List.mem tname all_classes)) && (tname <> "SELF_TYPE") then begin
+            if not ((List.mem tname all_classes)) && (tname <> Class "SELF_TYPE") then begin
                 (* printf "ERROR: %s: Type-Check: class %s has attribute %s with unknown type %s\n" tloc cname name tname;
                 exit 1; *)
             end;
@@ -460,7 +460,7 @@ let main () = begin
                 end;
             ) formal_list;
             (* Checks the return type to see if the type exists *)
-            if not (List.mem mtype all_classes) && (mtype <> "SELF_TYPE")then begin
+            if not (List.mem mtype all_classes) && (mtype <> Class "SELF_TYPE")then begin
                 (* printf "ERROR: %s: Type-Check: class %s has method %s with unknown return type %s\n" typeloc cname mname mtype;
                 exit 1; *)
             end;
@@ -499,8 +499,8 @@ let main () = begin
         ) child_classes;
     in
     List.iter (fun cl -> 
-        feature_check "Object" cl;
-    ) (Hashtbl.find_all inheritance "Object");
+        feature_check (Class "Object") cl;
+    ) (Hashtbl.find_all inheritance (Class "Object"));
 
     let all_classes = List.rev !visited in (* top sorted *)
     (* List.iter (fun (cname) -> 
@@ -590,10 +590,10 @@ let main () = begin
     fprintf fout "class_map\n%d\n" (List.length all_classes);
     let sorted_all_classes = List.sort compare all_classes in 
     List.iter (fun cname -> 
-        fprintf fout "%s\n" cname ;
+        fprintf fout "%s\n" (Class cname) ;
         let attributes = 
             try 
-                let _, inherits, features = List.find (fun ((_,cname2),_,_) -> cname = cname2) ast in 
+                let _, inherits, features = List.find (fun ((_,cname2),_,_) -> (Class cname) = (Class cname2)) ast in 
                 List.filter (fun feature -> match feature with 
                 | Attribute _ -> true 
                 | Method _ -> false 

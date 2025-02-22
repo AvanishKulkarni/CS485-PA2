@@ -260,7 +260,7 @@ let main () = begin
     (* Check for class-related errors *)
 
     let illegal_inherit_classes = ["Int"; "Bool"; "String"] in
-    let base_classes = [ "Int"; "Bool" ; "String"; "IO"; "Object" ] in
+    let base_classes = [ "Int"; "Bool" ; "String"; "IO"; "Object"] in 
     let user_classes = List.map(fun ((_,cname),_,_) -> cname ) ast in 
     let all_classes = base_classes @ user_classes in 
     let all_classes = List.sort compare all_classes in 
@@ -401,25 +401,20 @@ let main () = begin
     List.iter (fun cname ->
         let attr_list = Hashtbl.find_all class_map_attr cname in 
         let attr_seen = ref SeenSet.empty in 
-        List.iter (fun feat ->
-            match feat with 
-            (* Duplicate attribute name detected *)
-            | ((loc,name),_, None) -> if SeenSet.mem name !attr_seen then begin
-                printf "ERROR: %s: Type-Check: attribute %s redefined\n" loc name ;
-                exit 1
-            end;
-            | ((loc,name),_,Some(_)) -> if SeenSet.mem name !attr_seen then begin 
-                printf "ERROR: %s: Type-Check: attribute %s redefined\n" loc name ;
-                exit 1
-            end;
-            attr_seen := SeenSet.add name !attr_seen;
+
+        (* Check if attribute redefined *)
+        List.iter (fun ((loc,name),_, _) -> 
+        if SeenSet.mem name !attr_seen then begin
+            printf "ERROR: %s: Type-Check: attribute %s redefined\n" loc name ;
+            exit 1
+        end;
+        attr_seen := SeenSet.add name !attr_seen;
         ) attr_list;
         let meth_list = Hashtbl.find_all class_map_method cname in 
         let meth_seen = ref SeenSet.empty in 
-        List.iter (fun meth ->
-            match meth with 
-            (* Duplicate method name detected *)
-            | ((loc,mname),formal_list,_,_) -> if SeenSet.mem mname !meth_seen then begin 
+
+        (* Check for redfined method *)
+        List.iter (fun ((loc,mname),formal_list,_,_) -> if SeenSet.mem mname !meth_seen then begin 
                 printf "ERROR: %s: Type-Check: class %s redefines method %s\n" loc cname mname ;
                 exit 1;
             end else
@@ -448,13 +443,29 @@ let main () = begin
         let inherited_attributes_names = List.map (fun ((_, name), _, _) -> name) inherited_attributes in
         let methods = Hashtbl.find_all class_map_method cname in
         let attributes = Hashtbl.find_all class_map_attr cname in
-        List.iter (fun ((aloc, name), _, _) ->
+        List.iter (fun ((aloc, name), (tloc, tname), _)->
             if (List.mem name inherited_attributes_names) then begin
                 printf "ERROR: %s: Type-Check: class %s redefines attribute %s\n" aloc cname name;
                 exit 1;
             end;
+            if not ((List.mem tname all_classes)) && (tname <> "SELF_TYPE") then begin
+                printf "ERROR: %s: Type-Check: class %s has attribute %s with unknown type %s\n" tloc cname name tname;
+                exit 1;
+            end;
         ) attributes;
         List.iter (fun ((mloc, mname), formal_list, (typeloc, mtype),_) ->
+            (* Checks each formal parameter to see if the type exists *)
+            List.iter (fun ((_, fname), (ftloc, ftype))->
+                if not ((List.mem ftype all_classes)) then begin
+                    printf "ERROR: %s: Type-Check: class %s has method %s with formal parameter of unknown type %s\n" ftloc cname mname ftype;
+                    exit 1;
+                end;
+            ) formal_list;
+            (* Checks the return type to see if the type exists *)
+            if not (List.mem mtype all_classes) && (mtype <> "SELF_TYPE")then begin
+                printf "ERROR: %s: Type-Check: class %s has method %s with unknown return type %s\n" typeloc cname mname mtype;
+                exit 1;
+            end;
             List.iter (fun ((imloc, imname), iformal_list, (itypeloc, imtype),_) ->
                 if (mname = imname) then begin
                     if (List.length formal_list <> List.length iformal_list) then begin
@@ -465,9 +476,9 @@ let main () = begin
                         printf "ERROR: %s: Type-Check: class %s redefines method %s and changes return type (from %s to %s)\n" typeloc cname mname imtype mtype;
                         exit 1;
                     end;
-                    List.iter2 (fun ((fploc,fname), (_, ftype)) ((_,ifname), (_, iftype)) ->
+                    List.iter2 (fun ((fploc,fname), (ftloc, ftype)) ((_,ifname), (_, iftype)) ->
                         if (ftype <> iftype) then begin
-                            printf "ERROR: %s: Type-Check: class %s redefines method %s and changes type of formal %s\n" fploc cname mname fname;
+                            printf "ERROR: %s: Type-Check: class %s redefines method %s and changes type of formal %s\n" ftloc cname mname fname;
                             exit 1;
                         end;
                     ) formal_list iformal_list;
@@ -494,10 +505,6 @@ let main () = begin
         printf "%s " cname;
     ) all_classes;
     printf "\n"; *)
-
-    (* Check for attribute redefitions *)
-
-    (* Check for redefining inherited attributes, methods incorrectly *)
 
     (* Check for self and SELF_TYPE errors in classes/methods *)
 
@@ -526,7 +533,7 @@ let main () = begin
         | If (pred, thenexp, elseexp) -> ()
         | While (pred, bodyexp) -> ()
         | Block (body) -> ()
-        | New (newclass) -> ()
+        | New ((loc, name)) -> fprintf fout "new\n%s\n%s\n" loc name
         | Isvoid (e) -> ()
         | Plus (x, y) -> ()
         | Minus (x, y) -> ()

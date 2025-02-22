@@ -12,8 +12,8 @@ class B inherits A {
 
 class Main inherits IO {
 
-    x: B <- (new B);
-    y: Int <- x@A.print();
+    x: A <- (new A);
+    y: A <- (new B);
 
     main(): Object {
         1

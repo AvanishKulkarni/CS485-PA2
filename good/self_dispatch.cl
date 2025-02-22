@@ -4,7 +4,7 @@ class Main inherits IO {
         1
     };
 
-    x: Int <- self.print();
+    x: Int <- print();
     main() : Object {
         1
     };

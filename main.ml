@@ -308,11 +308,11 @@ let main () = begin
                 printf "ERROR: %s: Type-Check: class %s inherits from %s\n" iloc cname iname ;
                 exit 1
             end ;
-            (* if not (List.mem iname all_classes) then begin
+            if not (List.mem iname all_classes) then begin
                 printf "ERROR: %s: Type-Check: class %s inherits from unknown class %s\n" iloc cname iname ;
                 exit 1
-            end ; *)
-            Hashtbl.add inheritance ( iname) ( cname);
+            end ;
+            Hashtbl.add inheritance (iname) (cname);
       
             (* iterate through features, match to attribute or method, add to hashtbl *)
       match features with
@@ -489,16 +489,13 @@ let main () = begin
     ) (Hashtbl.find_all inheritance "Object");
 
     (* BLOCK 2 END *)
-
-    (* Check for main() method in Main *)
+    (* Check for main() method in Main or inherited classes*)
     let main_methods = Hashtbl.find_all class_map_method "Main" in 
-    let method_names = List.map (fun ((_,name),_,_,_) -> name) main_methods in (
-        if not(List.mem "main" method_names) then begin 
-            printf "ERROR: 0: Type-Check: class Main method main not found\n";
-            exit 1
-        end;
-    );
-
+    let method_names = List.map (fun ((_,name),_,_,_) -> name) main_methods in 
+    if not(List.mem "main" method_names) then begin 
+        printf "ERROR: 0: Type-Check: class Main method main not found\n";
+        exit 1
+    end;
     (* Checking to see if the main method has zero parameters *)
     List.iter (fun ((_,name),formals,_,_)->
         if (name = "main") && (List.length formals) <> 0 then begin
@@ -506,7 +503,6 @@ let main () = begin
             exit 1; 
         end;
     ) (Hashtbl.find_all class_map_method "Main");
-
     let all_classes = List.rev !visited in (* top sorted *)
     (* List.iter (fun (cname) -> 
         printf "%s " cname;

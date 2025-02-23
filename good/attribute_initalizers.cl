@@ -30,3 +30,18 @@ class Main inherits IO {
         1
     };
 };
+
+class A inherits Main {
+    alpha : String;
+    beta : Int <- 2+5;
+};
+
+class B inherits Main {
+    charlie : Int <- 2-5;
+    delta : String <- "Hello";
+};
+
+class D inherits A {
+    abra : Int;
+    charles: String;
+};

@@ -328,7 +328,7 @@ let main () = begin
                 printf "ERROR: %s: Type-Check: class %s inherits from unknown class %s\n" iloc cname iname ;
                 exit 1
             end ;
-            Hashtbl.add inheritance ( iname) ( cname);
+            Hashtbl.add inheritance (iname) (cname);
       
             (* iterate through features, match to attribute or method, add to hashtbl *)
       match features with
@@ -341,16 +341,7 @@ let main () = begin
                 | Method(mid, formal_list, mtype, mexp) -> Hashtbl.add class_map_method cname (mid, formal_list, mtype, mexp);
             ) lst;
         
-    ) ast;
-
-    (* Check for main() method in Main *)
-    let main_methods = Hashtbl.find_all class_map_method "Main" in 
-    let method_names = List.map (fun ((_,name),_,_,_) -> name) main_methods in 
-    if not(List.mem "main" method_names) then begin 
-        printf "ERROR: 0: Type-Check: class Main method main not found\n";
-        exit 1
-    end;
-     
+    ) ast;     
 
     (* Checking for inhertance cycle *)
     let visited = ref [] in
@@ -405,7 +396,7 @@ let main () = begin
         let meth_list = Hashtbl.find_all class_map_method cname in 
         let meth_seen = ref SeenSet.empty in 
 
-        (* Check for redfined method *)
+        (* Check for redefined method *)
         List.iter (fun ((loc,mname),formal_list,_,_) -> if SeenSet.mem mname !meth_seen then begin 
                 printf "ERROR: %s: Type-Check: class %s redefines method %s\n" loc cname mname ;
                 exit 1;
@@ -422,15 +413,8 @@ let main () = begin
             meth_seen := SeenSet.add mname !meth_seen;
         ) (List.rev meth_list);
     ) all_classes;
-    (* Checking to see if the main method has zero parameters *)
-    List.iter (fun ((_,name),formals,_,_)->
-        if (name = "main") && (List.length formals) <> 0 then begin
-            printf "ERROR: 0: Type-Check: class Main method main with 0 parameters not found\n";
-            exit 1; 
-        end;
-    ) (Hashtbl.find_all class_map_method "Main");
-    (* BLOCK 1 END *)
 
+    (* BLOCK 1 END *)
 
     (* 
     Figure out if something is a subtype of another
@@ -497,13 +481,13 @@ let main () = begin
                         printf "ERROR: %s: Type-Check: class %s redefines method %s and changes number of formals\n" mloc cname mname;
                         exit 1;
                     end;
-                    if (not (is_subtype mtype imtype)) then begin
+                    if (mtype <> imtype) then begin
                         printf "ERROR: %s: Type-Check: class %s redefines method %s and changes return type (from %s to %s)\n" typeloc cname mname imtype mtype;
                         exit 1;
                     end;
                     (* Checking if the formal types were changed *)
                     List.iter2 (fun ((fploc,fname), (ftloc, ftype)) ((_,ifname), (_, iftype)) ->
-                        if (not (is_subtype ftype iftype)) then begin
+                        if (ftype <> iftype) then begin
                             printf "ERROR: %s: Type-Check: class %s redefines method %s and changes type of formal %s\n" ftloc cname mname fname;
                             exit 1;
                         end;
@@ -528,7 +512,20 @@ let main () = begin
     ) (Hashtbl.find_all inheritance "Object");
 
     (* BLOCK 2 END *)
-
+    (* Check for main() method in Main or inherited classes*)
+    let main_methods = Hashtbl.find_all class_map_method "Main" in 
+    let method_names = List.map (fun ((_,name),_,_,_) -> name) main_methods in 
+    if not(List.mem "main" method_names) then begin 
+        printf "ERROR: 0: Type-Check: class Main method main not found\n";
+        exit 1
+    end;
+    (* Checking to see if the main method has zero parameters *)
+    List.iter (fun ((_,name),formals,_,_)->
+        if (name = "main") && (List.length formals) <> 0 then begin
+            printf "ERROR: 0: Type-Check: class Main method main with 0 parameters not found\n";
+            exit 1; 
+        end;
+    ) (Hashtbl.find_all class_map_method "Main");
     let all_classes = List.rev !visited in (* top sorted *)
     (* List.iter (fun (cname) -> 
         printf "%s " cname;

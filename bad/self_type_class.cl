@@ -1,0 +1,3 @@
+class Self_type {
+
+};

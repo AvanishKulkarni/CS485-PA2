@@ -277,11 +277,6 @@ let main () = begin
     Hashtbl.add inheritance ("Object") ("Bool");
     Hashtbl.add inheritance ("Object") ("String");
     Hashtbl.add inheritance ("Object") ("IO");
-    (* Check for missing main in Main *)
-    if not (List.mem ( "Main") all_classes) then begin 
-        printf "ERROR: 0: Type-Check: class Main not found\n";
-        exit 1
-    end;
 
     Hashtbl.add class_map_method "Object" (("0", "abort"), [], ("0", "Object"), {loc="0"; exp_kind= ObjectMethod(""); static_type=None});
     Hashtbl.add class_map_method "Object" (("0", "type_name"), [], ("0", "String"), {loc="0"; exp_kind= ObjectMethod(""); static_type=None});
@@ -303,7 +298,10 @@ let main () = begin
 
     (* BLOCK 0 BEGIN *)
     List.iter (fun ((cloc, cname), inherits, features) -> 
-      
+      if cname = "SELF_TYPE" then begin 
+        printf "ERROR: %s: Type-Check: class named SELF_TYPE\n" cloc ;
+        exit 1
+      end;
       if List.mem cname user_classes && List.mem cname base_classes then begin (* Need to add a way to check for duplicates in user_classes - would have same*)
         printf "ERROR: %s: Type-Check: class %s redefined\n" cloc cname ;
         exit 1
@@ -342,6 +340,11 @@ let main () = begin
             ) lst;
         
     ) ast;     
+    (* Check for missing main in Main *)
+    if not (List.mem ( "Main") all_classes) then begin 
+        printf "ERROR: 0: Type-Check: class Main not found\n";
+        exit 1
+    end;
 
     (* Checking for inhertance cycle *)
     let visited = ref [] in
@@ -447,6 +450,10 @@ let main () = begin
         (* Type checking attributes *)
         List.iter (fun ((aloc, name), (tloc, tname), _)->
             (* Checks for attributes called self *)
+            if not ((List.mem tname all_classes)) && (tname <> "SELF_TYPE") then begin
+                printf "ERROR: %s: Type-Check: class %s has attribute %s with unknown type %s\n" tloc cname name tname;
+                exit 1;
+            end;
             if (name = "self") then begin
                 printf "ERROR: %s: Type-Check: class %s has an attribute named self\n" aloc cname;
                 exit 1;
@@ -455,11 +462,7 @@ let main () = begin
                 printf "ERROR: %s: Type-Check: class %s redefines attribute %s\n" aloc cname name;
                 exit 1;
             end;
-            if not ((List.mem tname all_classes)) && (tname <> "SELF_TYPE") then begin
-                printf "ERROR: %s: Type-Check: class %s has attribute %s with unknown type %s\n" tloc cname name tname;
-                exit 1;
-            end;
-        ) attributes;
+        ) (List.rev attributes);
         List.iter (fun ((mloc, mname), formal_list, (typeloc, mtype),_) ->
             (* Checks each formal parameter to see if the type exists *)
             List.iter (fun ((_, fname), (ftloc, ftype))->
@@ -477,12 +480,14 @@ let main () = begin
                 (* if (mname = imname) then begin *)
                 if (is_subtype mname imname) then begin
                     (* Checking for inherited method redefinitions*)
-                    if (List.length formal_list <> List.length iformal_list) then begin
-                        printf "ERROR: %s: Type-Check: class %s redefines method %s and changes number of formals\n" mloc cname mname;
-                        exit 1;
-                    end;
+                    (* Checking for return type change *)
                     if (mtype <> imtype) then begin
                         printf "ERROR: %s: Type-Check: class %s redefines method %s and changes return type (from %s to %s)\n" typeloc cname mname imtype mtype;
+                        exit 1;
+                    end;
+                    (* Checking for # of formals change *)
+                    if (List.length formal_list <> List.length iformal_list) then begin
+                        printf "ERROR: %s: Type-Check: class %s redefines method %s and changes number of formals\n" mloc cname mname;
                         exit 1;
                     end;
                     (* Checking if the formal types were changed *)

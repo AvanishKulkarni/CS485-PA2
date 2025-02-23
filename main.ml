@@ -478,12 +478,20 @@ let main () = begin
             ) inherited_methods;
         ) methods;
         (* If no errors are found, then add inherited features to the class map*)
+        List.iter (fun _ -> Hashtbl.remove class_map_method cname) methods;
         List.iter (fun meth ->
             Hashtbl.add class_map_method cname meth;
         ) inherited_methods;
+        List.iter (fun meth ->
+            Hashtbl.add class_map_method cname meth;
+        ) methods;
+        List.iter (fun _ -> Hashtbl.remove class_map_attr cname) attributes;
         List.iter (fun attr ->
             Hashtbl.add class_map_attr cname attr;
-        ) inherited_attributes;
+        ) (List.rev inherited_attributes);
+        List.iter (fun attr ->
+            Hashtbl.add class_map_attr cname attr;
+        ) (List.rev attributes);
         let child_classes = Hashtbl.find_all inheritance cname in
         List.iter (fun cl ->
             feature_check cname cl;
@@ -597,25 +605,21 @@ let main () = begin
     let sorted_all_classes = List.sort compare all_classes in 
     List.iter (fun cname -> 
         fprintf fout "%s\n" cname ;
-        let attributes = 
-            try 
-                let _, inherits, features = List.find (fun ((_,cname2),_,_) -> cname = cname2) ast in 
-                List.filter (fun feature -> match feature with 
-                | Attribute _ -> true 
-                | Method _ -> false 
-                ) features
-            with Not_found -> 
-                [] 
+        let attributes = Hashtbl.find_all class_map_attr cname
         in 
+        (* let attributes = List.sort (fun ((a,_),_,_) ((b,_),_,_) -> 
+            let a = int_of_string(a) in
+            let b = int_of_string(b) in
+            compare a b
+        ) attributes in *)
         fprintf fout "%d\n" (List.length attributes) ;
         List.iter (fun attr -> match attr with 
-        | Attribute ((_, aname),(_, atype), None) -> 
+        | (_, aname),(_, atype), None -> 
             fprintf fout "no_initializer\n%s\n%s\n" aname atype
-        | Attribute ((_, aname),(_, atype), Some init) ->
+        | (_, aname), (_, atype), Some init ->
             fprintf fout "initializer\n%s\n%s\n" aname atype ;
             output_exp init
-        | Method _ -> failwith "method unexpected"
-        ) attributes ;
+        ) (List.rev attributes) ; (* Attributes are stored in reverse order due to how insertion into hash tables work*)
     ) sorted_all_classes;
 
     close_out fout ; 

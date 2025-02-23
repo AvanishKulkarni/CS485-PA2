@@ -19,11 +19,11 @@ class Main inherits IO {
     else
         4
     fi;
+    aa: Int;
     m : String <- "Hello";
     n : Int <- 1;
     o : Bool <- false;
     p : SELF_TYPE;
-    
 
 
     main() : Object {

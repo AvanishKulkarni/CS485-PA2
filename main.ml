@@ -12,22 +12,6 @@ let type_to_str t = match t with
 | Class(x) -> x
 | SELF_TYPE(c) -> "SELF_TYPE"
 
-(*
-let rec is_subtype t1 t2 = 
-    match t1, t2 with 
-    | Class(x), Class(y) when x = y -> true
-    | Class(x), Class("Object") -> true
-    | Class(x), Class(y) -> (* check parent map *)
-        let rec dfs_helper vert = (* checking inheritance map *)
-            if vert = y then true
-            else
-                let children = Hashtbl.find_all inheritance vert in
-                List.exists dfs_helper children
-            in 
-            dfs_helper x
-    | _, _ -> false (* self type behavior *)
-*)
-
 type cool_program = cool_class list
 and loc = string (* actually and int *)
 and name = string
@@ -416,14 +400,7 @@ let main () = begin
             meth_seen := SeenSet.add mname !meth_seen;
         ) (List.rev meth_list);
     ) all_classes;
-
     (* BLOCK 1 END *)
-
-    (* 
-    Figure out if something is a subtype of another
-    Find x on inheritance tree, traverse down the tree 
-    until you find y => return true, else return false 
-    *)
 
     (* Is x a subtype of y *)
     let is_subtype x y = 

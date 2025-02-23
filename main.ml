@@ -5,12 +5,30 @@ open Printf
 type static_type = 
 | Class of string 
 | SELF_TYPE of string 
-
-module SeenSet = Set.Make(String)
+and obj_ident = string
+and meth_name = string
+and meth_sig = static_type list 
 
 let type_to_str t = match t with 
 | Class(x) -> x
 | SELF_TYPE(c) -> "SELF_TYPE"
+
+let object_env : (obj_ident, static_type) Hashtbl.t = Hashtbl.create 255
+let method_env : ((static_type * meth_name), meth_sig) Hashtbl.t = Hashtbl.create 255
+
+let has_duplicates (lst) : static_type option = 
+    let tbl = Hashtbl.create (List.length lst) in 
+    let rec helper = function 
+    | [] -> None
+    | hd :: tl ->
+        if Hashtbl.mem tbl hd then Some hd
+        else (
+            Hashtbl.add tbl hd ();
+            helper tl
+        )
+    in helper lst 
+
+
 
 type cool_program = cool_class list
 and loc = string (* actually and int *)
@@ -59,9 +77,9 @@ and binding =
 and case_elem = 
     | Case_Elem of id * id * exp
 
-let inheritance : (static_type, static_type) Hashtbl.t = Hashtbl.create 255
-let class_map_attr = Hashtbl.create 255
-let class_map_method = Hashtbl.create 255
+let parent_map : (static_type, static_type) Hashtbl.t = Hashtbl.create 255
+let class_map_attr : (static_type, feature) Hashtbl.t = Hashtbl.create 255
+let class_map_method : (static_type, feature) Hashtbl.t = Hashtbl.create 255
 
 let rec is_subtype t1 t2 = 
     match t1, t2 with 
@@ -71,7 +89,7 @@ let rec is_subtype t1 t2 =
         let rec dfs_helper vert = (* checking inheritance map *)
             if vert = Class(y) then true
             else
-                let children = Hashtbl.find_all inheritance vert in
+                let children = Hashtbl.find_all parent_map vert in
                 List.exists dfs_helper children
             in 
             dfs_helper (Class x)
@@ -102,7 +120,7 @@ let main () = begin
         let loc = read () in
         let name = read () in 
         (loc, name)
-    and read_cool_class () = (* Class *)
+    and read_cool_class () : cool_class = (* Class *)
         let cname = read_id() in 
         let inherits = match read() with 
         | "no_inherits" -> None
@@ -266,252 +284,58 @@ let main () = begin
 
     let illegal_inherit_classes = [Class "Int"; Class "Bool"; Class "String"] in
     let base_classes = [Class "Int"; Class "Bool" ; Class "String"; Class "IO"; Class "Object"] in 
-    let user_classes = List.map(fun ((_,cname),_,_) ->  Class cname ) ast in 
+    let user_classes = List.map(fun ((_,cname),_,_) -> Class cname ) ast in 
     let all_classes = base_classes @ user_classes in 
     let all_classes = List.sort compare all_classes in 
-    let seen = ref SeenSet.empty in 
+
+    Hashtbl.add parent_map (Class "Object") (Class "Int");
+    Hashtbl.add parent_map (Class "Object") (Class "Bool");
+    Hashtbl.add parent_map (Class "Object") (Class "String");
+    Hashtbl.add parent_map (Class "Object") (Class "IO");
+
+    (* Object methods *)
+    let signature = (Class "Object", "abort") in
+    let formals = [Class "Object"] in
+    Hashtbl.add method_env signature formals;
+
+    let signature = (Class "Object", "type_name") in
+    let formals = [Class "String"] in
+    Hashtbl.add method_env signature formals;
+
+    let signature = (Class "Object", "copy") in
+    let formals = [Class "SELF_TYPE"] in
+    Hashtbl.add method_env signature formals;
+
+    (* IO Methods *)
+    let signature = (Class "IO", "out_string") in
+    let formals = [Class "String"; Class "SELF_TYPE"] in
+    Hashtbl.add method_env signature formals;
+
+    let signature = (Class "IO", "out_int") in
+    let formals = [Class "Int"; Class "SELF_TYPE"] in
+    Hashtbl.add method_env signature formals;
+
+    let signature = (Class "IO", "in_string") in
+    let formals = [Class "String"] in
+    Hashtbl.add method_env signature formals;
+
+    let signature = (Class "IO", "in_int") in
+    let formals = [Class "Int"] in
+    Hashtbl.add method_env signature formals;
     
+    (* String Methods *)
+    let signature = (Class "String", "length") in
+    let formals = [Class "Int"] in
+    Hashtbl.add method_env signature formals;
 
-    Hashtbl.add inheritance (Class "Object") (Class "Int");
-    Hashtbl.add inheritance (Class "Object") (Class "Bool");
-    Hashtbl.add inheritance (Class "Object") (Class "String");
-    Hashtbl.add inheritance (Class "Object") (Class "IO");
+    let signature = (Class "String", "concat") in
+    let formals = [Class "String"; Class "String"] in
+    Hashtbl.add method_env signature formals;
 
-    (* Check for missing main in Main *)
-    if not (List.mem (Class "Main") all_classes) then begin 
-        (* printf "ERROR: 0: Type-Check: class Main not found\n";
-        exit 1 *)
-    end;
-
-    Hashtbl.add class_map_method (Class "Object") (("0", "abort"), [], ("0", "Object"), {loc="0"; exp_kind= ObjectMethod(""); static_type=None});
-    Hashtbl.add class_map_method (Class "Object") (("0", "type_name"), [], ("0", "String"), {loc="0"; exp_kind= ObjectMethod(""); static_type=None});
-    Hashtbl.add class_map_method (Class "Object") (("0", "copy"), [], ("0", "SELF_TYPE"), {loc="0"; exp_kind= ObjectMethod(""); static_type=None});
-
-    Hashtbl.add class_map_method (Class "IO") (("0", "out_string"), [("0", "x"), ("0", "String")], ("0", "SELF_TYPE"), {loc="0"; exp_kind=IOMethod(""); static_type=None});
-    Hashtbl.add class_map_method (Class "IO") (("0", "out_int"), [("0", "x"), ("0", "Int")], ("0", "SELF_TYPE"), {loc="0"; exp_kind=IOMethod(""); static_type=None});
-    Hashtbl.add class_map_method (Class "IO") (("0", "in_string"), [], ("0", "String"), {loc="0"; exp_kind=IOMethod(""); static_type=None});
-    Hashtbl.add class_map_method (Class "IO") (("0", "in_int"), [], ("0", "Int"), {loc="0"; exp_kind=IOMethod(""); static_type=None});
-
-    Hashtbl.add class_map_method (Class "String") (("0", "length"), [], ("0", "Int"), {loc="0"; exp_kind=StringMethod(""); static_type=None});
-    Hashtbl.add class_map_method (Class "String") (("0", "concat"), [("0", "s"), ("0", "String")], ("0", "String"), {loc="0"; exp_kind=StringMethod(""); static_type=None});
-    Hashtbl.add class_map_method (Class "String") (("0", "substr"), [("0", "i"), ("0", "Int"); ("0", "l"), ("0", "Int")], ("0", "String"), {loc="0"; exp_kind=StringMethod(""); static_type=None});
-
-    (* 
-        look for inheritance from Int 
-        look for inheritance from Undeclared Class
-    *)
+    let signature = (Class "String", "substr") in
+    let formals = [Class "Int"; Class "Int"; Class "String"] in
+    Hashtbl.add method_env signature formals;
     
-    List.iter (fun ((cloc, cname), inherits, features) -> 
-      
-      if List.mem cname user_classes && List.mem cname base_classes then begin (* Need to add a way to check for duplicates in user_classes - would have same*)
-        (* printf "ERROR: %s: Type-Check: class %s redefined\n" cloc cname ;
-        exit 1 *)
-      end ;
-
-      (* Check for duplicate classes *)
-      if SeenSet.mem cname !seen then begin
-        (* printf "ERROR: %s: Type-Check: class %s redefined\n" cloc cname ;
-        exit 1 *)
-      end;
-
-      seen := SeenSet.add cname !seen;
-
-      match inherits with
-        | None -> Hashtbl.add inheritance (Class "Object") ( cname) (* inherits from Object by default *)
-        | Some(iloc, iname) -> (* inherited type identifier *)
-            if List.mem iname illegal_inherit_classes then begin 
-                (* printf "ERROR: %s: Type-Check: class %s inherits from %s\n" iloc cname iname ;
-                exit 1 *)
-            end ;
-            if not (List.mem iname all_classes) then begin
-                (* printf "ERROR: %s: Type-Check: class %s inherits from unknown class %s\n" iloc cname iname ;
-                exit 1 *)
-            end ;
-            Hashtbl.add inheritance ( iname) ( cname);
-      
-            (* iterate through features, match to attribute or method, add to hashtbl *)
-      match features with
-        | [] -> printf ""
-        | lst ->
-            List.iter(fun feat ->
-                match feat with
-                | Attribute(aid, atype, Some(aexp)) -> Hashtbl.add class_map_attr cname (aid, atype, Some(aexp));
-                | Attribute(aid, atype, None) -> Hashtbl.add class_map_attr cname (aid, atype, None);
-                | Method(mid, formal_list, mtype, mexp) -> Hashtbl.add class_map_method cname (mid, formal_list, mtype, mexp);
-            ) lst;
-        
-    ) ast;
-
-    (* Check for main() method in Main *)
-     
-
-    (* Checking for inheritance cycle *)
-    let visited = ref [] in
-    let cycle = ref [] in
-    let rec cycle_check cname = 
-      if List.exists (fun x -> x = cname ) !cycle then false
-      else if List.exists (fun x -> x = cname ) !visited then true
-      else begin
-          cycle := cname :: !cycle;
-          let res =
-            if Hashtbl.mem inheritance cname then 
-                let y = Hashtbl.find_all inheritance cname in
-                let y = List.sort compare y in
-                List.for_all (fun t -> cycle_check t) y
-            else
-              true
-            in
-            visited := cname :: !visited;
-            cycle := List.tl !cycle;
-            res 
-      end
-    in
-    
-    List.iter (fun(cname) ->
-      if (cycle_check cname) = false then begin
-        printf "ERROR: 0: Type-Check: inheritance cycle:" ;
-        let sorted_cycle = List.sort compare !visited in
-        let reverse_sorted_cycle = List.rev sorted_cycle in
-        List.iter (fun (x) ->
-          printf " %s" x
-        ) reverse_sorted_cycle ;
-        printf "\n";
-        exit 1 
-      end
-    ) all_classes ; 
-
-    (* Check for duplicate attributes, methods with each class *)
-    (* Check for duplicates in formal list *)
-    List.iter (fun cname ->
-        let attr_list = Hashtbl.find_all class_map_attr cname in 
-        let attr_seen = ref SeenSet.empty in 
-
-        (* Check if attribute redefined *)
-        List.iter (fun ((loc,name),_, _) -> 
-        if SeenSet.mem name !attr_seen then begin
-            (* printf "ERROR: %s: Type-Check: class %s redefines attribute %s\n" loc cname name ;
-            exit 1 *)
-        end;
-        attr_seen := SeenSet.add name !attr_seen;
-        ) (List.rev attr_list);
-        let meth_list = Hashtbl.find_all class_map_method cname in 
-        let meth_seen = ref SeenSet.empty in 
-
-        (* Check for redfined method *)
-        List.iter (fun ((loc,mname),formal_list,_,_) -> if SeenSet.mem mname !meth_seen then begin 
-                (* printf "ERROR: %s: Type-Check: class %s redefines method %s\n" loc cname mname ;
-                exit 1; *)
-            end else
-                (* Check for duplicates in formal list *)
-                let formal_seen = ref SeenSet.empty in 
-                List.iter (fun ((loc, pname), _) -> 
-                    if SeenSet.mem pname !formal_seen then begin 
-                        (* printf "ERROR: %s: Type-Check: class %s has method %s with duplicate formal parameter named %s\n" loc cname mname pname;
-                        exit 1; *)
-                    end;
-                    formal_seen := SeenSet.add pname !formal_seen;
-                ) formal_list;
-            meth_seen := SeenSet.add mname !meth_seen;
-        ) (List.rev meth_list);
-    ) all_classes;
-    (* Checking to see if the main method has zero parameters *)
-    List.iter (fun ((_,name),formals,_,_)->
-        if (name = "main") && (List.length formals) <> 0 then begin
-            (* printf "ERROR: 0: Type-Check: class Main method main with 0 parameters not found\n";
-            exit 1;  *)
-        end;
-    ) (Hashtbl.find_all class_map_method (Class "Main"));
-    
-    (* 
-    Figure out if something is a subtype of another
-    Find x on inheritance tree, traverse down the tree 
-    until you find y => return true, else return false 
-    *)
-
-    (* Type Checking features *)
-    let rec feature_check iname cname = 
-        let inherited_methods = Hashtbl.find_all class_map_method iname in
-        let inherited_attributes = Hashtbl.find_all class_map_attr iname in
-        let inherited_attributes_names = List.map (fun ((_, name), _, _) -> name) inherited_attributes in
-        let methods = Hashtbl.find_all class_map_method cname in
-        let attributes = Hashtbl.find_all class_map_attr cname in
-        (* Type checking attributes *)
-        List.iter (fun ((aloc, name), (tloc, tname), _)->
-            (* Checks for attributes called self *)
-            if (name = "self") then begin
-                (* printf "ERROR: %s: Type-Check: class %s has an attribute named self\n" aloc cname;
-                exit 1; *)
-            end;
-            if (List.mem name inherited_attributes_names) then begin
-                (* printf "ERROR: %s: Type-Check: class %s redefines attribute %s\n" aloc cname name;
-                exit 1; *)
-            end;
-            if not ((List.mem tname all_classes)) && (tname <> Class "SELF_TYPE") then begin
-                (* printf "ERROR: %s: Type-Check: class %s has attribute %s with unknown type %s\n" tloc cname name tname;
-                exit 1; *)
-            end;
-        ) attributes;
-        List.iter (fun ((mloc, mname), formal_list, (typeloc, mtype),_) ->
-            (* Checks each formal parameter to see if the type exists *)
-            List.iter (fun ((_, fname), (ftloc, ftype))->
-                if not ((List.mem ftype all_classes)) then begin
-                    (* printf "ERROR: %s: Type-Check: class %s has method %s with formal parameter of unknown type %s\n" ftloc cname mname ftype;
-                    exit 1; *)
-                end;
-            ) formal_list;
-            (* Checks the return type to see if the type exists *)
-            if not (List.mem mtype all_classes) && (mtype <> Class "SELF_TYPE")then begin
-                (* printf "ERROR: %s: Type-Check: class %s has method %s with unknown return type %s\n" typeloc cname mname mtype;
-                exit 1; *)
-            end;
-            List.iter (fun ((imloc, imname), iformal_list, (itypeloc, imtype),_) ->
-                (* if (mname = imname) then begin *)
-                if (is_subtype mname imname) then begin
-                    (* Checking for inherited method redefinitions*)
-                    if (List.length formal_list <> List.length iformal_list) then begin
-                        (* printf "ERROR: %s: Type-Check: class %s redefines method %s and changes number of formals\n" mloc cname mname;
-                        exit 1; *)
-                    end;
-                    if (not (is_subtype mtype imtype)) then begin
-                        (* printf "ERROR: %s: Type-Check: class %s redefines method %s and changes return type (from %s to %s)\n" typeloc cname mname imtype mtype;
-                        exit 1; *)
-                    end;
-                    (* Checking if the formal types were changed *)
-                    List.iter2 (fun ((fploc,fname), (ftloc, ftype)) ((_,ifname), (_, iftype)) ->
-                        if (not (is_subtype ftype iftype)) then begin
-                            (* printf "ERROR: %s: Type-Check: class %s redefines method %s and changes type of formal %s\n" ftloc cname mname fname;
-                            exit 1; *)
-                        end;
-                    ) formal_list iformal_list;
-                end;
-            ) inherited_methods;
-        ) methods;
-        (* If no errors are found, then add inherited features to the class map*)
-        List.iter (fun meth ->
-            Hashtbl.add class_map_method cname meth;
-        ) inherited_methods;
-        List.iter (fun attr ->
-            Hashtbl.add class_map_attr cname attr;
-        ) inherited_attributes;
-        let child_classes = Hashtbl.find_all inheritance cname in
-        List.iter (fun cl ->
-            feature_check cname cl;
-        ) child_classes;
-    in
-    List.iter (fun cl -> 
-        feature_check (Class "Object") cl;
-    ) (Hashtbl.find_all inheritance (Class "Object"));
-
-    let all_classes = List.rev !visited in (* top sorted *)
-    (* List.iter (fun (cname) -> 
-        printf "%s " cname;
-    ) all_classes;
-    printf "\n"; *)
-
-    (* Check for self and SELF_TYPE errors in classes/methods *)
-
-    (* MORE *)
-
     (* Error checking complete *)
 
     (* Emit CL-TYPE File *)
@@ -589,8 +413,9 @@ let main () = begin
 
     fprintf fout "class_map\n%d\n" (List.length all_classes);
     let sorted_all_classes = List.sort compare all_classes in 
-    List.iter (fun cname -> 
-        fprintf fout "%s\n" (Class cname) ;
+    List.iter (fun class_type -> 
+        let cname = match class_type with | Class s -> s | SELF_TYPE s -> s in
+        fprintf fout "%s\n" cname ;
         let attributes = 
             try 
                 let _, inherits, features = List.find (fun ((_,cname2),_,_) -> (Class cname) = (Class cname2)) ast in 

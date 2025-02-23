@@ -30,7 +30,8 @@ let rec is_subtype t1 t2 =
 
 type cool_program = cool_class list
 and loc = string (* actually and int *)
-and id = loc * string
+and name = string
+and id = loc * name
 and cool_type = id
 and cool_class = id * (id option) * feature list 
 and feature = 
@@ -74,6 +75,10 @@ and binding =
     | Binding of id * cool_type * (exp option)
 and case_elem = 
     | Case_Elem of id * id * exp
+
+let inheritance: (name, name) Hashtbl.t = Hashtbl.create 255
+let class_map_attr: (name, id * cool_type * exp option) Hashtbl.t = Hashtbl.create 255
+let class_map_method: (name, id * formal list * cool_type * exp) Hashtbl.t = Hashtbl.create 255
 
 let main () = begin 
     (* De-serialize CL-AST file *)
@@ -267,22 +272,15 @@ let main () = begin
     let all_classes = base_classes @ user_classes in 
     let all_classes = List.sort compare all_classes in 
     let seen = ref SeenSet.empty in 
-    let inheritance = Hashtbl.create 255 in
-
-    let test_table = Hashtbl.create 10 in 
-
-    Hashtbl.add test_table ("Hello") ("World");
 
     Hashtbl.add inheritance ("Object") ("Int");
     Hashtbl.add inheritance ("Object") ("Bool");
     Hashtbl.add inheritance ("Object") ("String");
     Hashtbl.add inheritance ("Object") ("IO");
-    let class_map_attr = Hashtbl.create 255 in
-    let class_map_method = Hashtbl.create 255 in
     (* Check for missing main in Main *)
     if not (List.mem ( "Main") all_classes) then begin 
-        (* printf "ERROR: 0: Type-Check: class Main not found\n";
-        exit 1 *)
+        printf "ERROR: 0: Type-Check: class Main not found\n";
+        exit 1
     end;
 
     Hashtbl.add class_map_method "Object" (("0", "abort"), [], ("0", "Object"), {loc="0"; exp_kind= ObjectMethod(""); static_type=None});
@@ -302,18 +300,19 @@ let main () = begin
         look for inheritance from Int 
         look for inheritance from Undeclared Class
     *)
-    
+
+    (* BLOCK 0 BEGIN *)
     List.iter (fun ((cloc, cname), inherits, features) -> 
       
       if List.mem cname user_classes && List.mem cname base_classes then begin (* Need to add a way to check for duplicates in user_classes - would have same*)
-        (* printf "ERROR: %s: Type-Check: class %s redefined\n" cloc cname ;
-        exit 1 *)
+        printf "ERROR: %s: Type-Check: class %s redefined\n" cloc cname ;
+        exit 1
       end ;
 
       (* Check for duplicate classes *)
       if SeenSet.mem cname !seen then begin
-        (* printf "ERROR: %s: Type-Check: class %s redefined\n" cloc cname ;
-        exit 1 *)
+        printf "ERROR: %s: Type-Check: class %s redefined\n" cloc cname ;
+        exit 1
       end;
 
       seen := SeenSet.add cname !seen;
@@ -322,12 +321,12 @@ let main () = begin
         | None -> Hashtbl.add inheritance ("Object") ( cname) (* inherits from Object by default *)
         | Some(iloc, iname) -> (* inherited type identifier *)
             if List.mem iname illegal_inherit_classes then begin 
-                (* printf "ERROR: %s: Type-Check: class %s inherits from %s\n" iloc cname iname ;
-                exit 1 *)
+                printf "ERROR: %s: Type-Check: class %s inherits from %s\n" iloc cname iname ;
+                exit 1
             end ;
             if not (List.mem iname all_classes) then begin
-                (* printf "ERROR: %s: Type-Check: class %s inherits from unknown class %s\n" iloc cname iname ;
-                exit 1 *)
+                printf "ERROR: %s: Type-Check: class %s inherits from unknown class %s\n" iloc cname iname ;
+                exit 1
             end ;
             Hashtbl.add inheritance ( iname) ( cname);
       
@@ -348,8 +347,8 @@ let main () = begin
     let main_methods = Hashtbl.find_all class_map_method "Main" in 
     let method_names = List.map (fun ((_,name),_,_,_) -> name) main_methods in 
     if not(List.mem "main" method_names) then begin 
-        (* printf "ERROR: 0: Type-Check: class Main method main not found\n";
-        exit 1 *)
+        printf "ERROR: 0: Type-Check: class Main method main not found\n";
+        exit 1
     end;
      
 
@@ -374,7 +373,6 @@ let main () = begin
             res 
       end
     in
-    
     List.iter (fun(cname) ->
       if (cycle_check cname) = false then begin
         printf "ERROR: 0: Type-Check: inheritance cycle:" ;
@@ -387,7 +385,9 @@ let main () = begin
         exit 1 
       end
     ) all_classes ; 
+    (* BLOCK 0 END *)
 
+    (* BLOCK 1 BEGIN *)
     (* Check for duplicate attributes, methods with each class *)
     (* Check for duplicates in formal list *)
     List.iter (fun cname ->
@@ -397,8 +397,8 @@ let main () = begin
         (* Check if attribute redefined *)
         List.iter (fun ((loc,name),_, _) -> 
         if SeenSet.mem name !attr_seen then begin
-            (* printf "ERROR: %s: Type-Check: class %s redefines attribute %s\n" loc cname name ;
-            exit 1 *)
+            printf "ERROR: %s: Type-Check: class %s redefines attribute %s\n" loc cname name ;
+            exit 1
         end;
         attr_seen := SeenSet.add name !attr_seen;
         ) (List.rev attr_list);
@@ -407,15 +407,15 @@ let main () = begin
 
         (* Check for redfined method *)
         List.iter (fun ((loc,mname),formal_list,_,_) -> if SeenSet.mem mname !meth_seen then begin 
-                (* printf "ERROR: %s: Type-Check: class %s redefines method %s\n" loc cname mname ;
-                exit 1; *)
+                printf "ERROR: %s: Type-Check: class %s redefines method %s\n" loc cname mname ;
+                exit 1;
             end else
                 (* Check for duplicates in formal list *)
                 let formal_seen = ref SeenSet.empty in 
                 List.iter (fun ((loc, pname), _) -> 
                     if SeenSet.mem pname !formal_seen then begin 
-                        (* printf "ERROR: %s: Type-Check: class %s has method %s with duplicate formal parameter named %s\n" loc cname mname pname;
-                        exit 1; *)
+                        printf "ERROR: %s: Type-Check: class %s has method %s with duplicate formal parameter named %s\n" loc cname mname pname;
+                        exit 1;
                     end;
                     formal_seen := SeenSet.add pname !formal_seen;
                 ) formal_list;
@@ -425,11 +425,13 @@ let main () = begin
     (* Checking to see if the main method has zero parameters *)
     List.iter (fun ((_,name),formals,_,_)->
         if (name = "main") && (List.length formals) <> 0 then begin
-            (* printf "ERROR: 0: Type-Check: class Main method main with 0 parameters not found\n";
-            exit 1;  *)
+            printf "ERROR: 0: Type-Check: class Main method main with 0 parameters not found\n";
+            exit 1; 
         end;
     ) (Hashtbl.find_all class_map_method "Main");
-    
+    (* BLOCK 1 END *)
+
+
     (* 
     Figure out if something is a subtype of another
     Find x on inheritance tree, traverse down the tree 
@@ -450,6 +452,7 @@ let main () = begin
             dfs_helper y
     in
 
+    (* BLOCK 2 BEGIN *)
     (* Type Checking features *)
     let rec feature_check iname cname = 
         let inherited_methods = Hashtbl.find_all class_map_method iname in
@@ -461,48 +464,48 @@ let main () = begin
         List.iter (fun ((aloc, name), (tloc, tname), _)->
             (* Checks for attributes called self *)
             if (name = "self") then begin
-                (* printf "ERROR: %s: Type-Check: class %s has an attribute named self\n" aloc cname;
-                exit 1; *)
+                printf "ERROR: %s: Type-Check: class %s has an attribute named self\n" aloc cname;
+                exit 1;
             end;
             if (List.mem name inherited_attributes_names) then begin
-                (* printf "ERROR: %s: Type-Check: class %s redefines attribute %s\n" aloc cname name;
-                exit 1; *)
+                printf "ERROR: %s: Type-Check: class %s redefines attribute %s\n" aloc cname name;
+                exit 1;
             end;
             if not ((List.mem tname all_classes)) && (tname <> "SELF_TYPE") then begin
-                (* printf "ERROR: %s: Type-Check: class %s has attribute %s with unknown type %s\n" tloc cname name tname;
-                exit 1; *)
+                printf "ERROR: %s: Type-Check: class %s has attribute %s with unknown type %s\n" tloc cname name tname;
+                exit 1;
             end;
         ) attributes;
         List.iter (fun ((mloc, mname), formal_list, (typeloc, mtype),_) ->
             (* Checks each formal parameter to see if the type exists *)
             List.iter (fun ((_, fname), (ftloc, ftype))->
                 if not ((List.mem ftype all_classes)) then begin
-                    (* printf "ERROR: %s: Type-Check: class %s has method %s with formal parameter of unknown type %s\n" ftloc cname mname ftype;
-                    exit 1; *)
+                    printf "ERROR: %s: Type-Check: class %s has method %s with formal parameter of unknown type %s\n" ftloc cname mname ftype;
+                    exit 1;
                 end;
             ) formal_list;
             (* Checks the return type to see if the type exists *)
             if not (List.mem mtype all_classes) && (mtype <> "SELF_TYPE")then begin
-                (* printf "ERROR: %s: Type-Check: class %s has method %s with unknown return type %s\n" typeloc cname mname mtype;
-                exit 1; *)
+                printf "ERROR: %s: Type-Check: class %s has method %s with unknown return type %s\n" typeloc cname mname mtype;
+                exit 1;
             end;
             List.iter (fun ((imloc, imname), iformal_list, (itypeloc, imtype),_) ->
                 (* if (mname = imname) then begin *)
                 if (is_subtype mname imname) then begin
                     (* Checking for inherited method redefinitions*)
                     if (List.length formal_list <> List.length iformal_list) then begin
-                        (* printf "ERROR: %s: Type-Check: class %s redefines method %s and changes number of formals\n" mloc cname mname;
-                        exit 1; *)
+                        printf "ERROR: %s: Type-Check: class %s redefines method %s and changes number of formals\n" mloc cname mname;
+                        exit 1;
                     end;
                     if (not (is_subtype mtype imtype)) then begin
-                        (* printf "ERROR: %s: Type-Check: class %s redefines method %s and changes return type (from %s to %s)\n" typeloc cname mname imtype mtype;
-                        exit 1; *)
+                        printf "ERROR: %s: Type-Check: class %s redefines method %s and changes return type (from %s to %s)\n" typeloc cname mname imtype mtype;
+                        exit 1;
                     end;
                     (* Checking if the formal types were changed *)
                     List.iter2 (fun ((fploc,fname), (ftloc, ftype)) ((_,ifname), (_, iftype)) ->
                         if (not (is_subtype ftype iftype)) then begin
-                            (* printf "ERROR: %s: Type-Check: class %s redefines method %s and changes type of formal %s\n" ftloc cname mname fname;
-                            exit 1; *)
+                            printf "ERROR: %s: Type-Check: class %s redefines method %s and changes type of formal %s\n" ftloc cname mname fname;
+                            exit 1;
                         end;
                     ) formal_list iformal_list;
                 end;
@@ -523,6 +526,8 @@ let main () = begin
     List.iter (fun cl -> 
         feature_check "Object" cl;
     ) (Hashtbl.find_all inheritance "Object");
+
+    (* BLOCK 2 END *)
 
     let all_classes = List.rev !visited in (* top sorted *)
     (* List.iter (fun (cname) -> 
@@ -568,7 +573,7 @@ let main () = begin
             List.iter (fun exp -> output_exp exp;) args;
         | If (pred, thenexp, elseexp) -> fprintf fout "if\n"; output_exp pred; output_exp thenexp; output_exp elseexp;
         | While (pred, bodyexp) -> fprintf fout "while\n"; output_exp pred; output_exp bodyexp;
-        | Block (body) -> fprintf fout "block\n"; List.iter (fun exp -> output_exp exp;) body;
+        | Block (body) -> fprintf fout "block\n%d\n" (List.length body); List.iter (fun exp -> output_exp exp;) body;
         | New ((loc, name)) -> fprintf fout "new\n%s\n%s\n" loc name
         | Isvoid (e) -> fprintf fout "isvoid\n"; output_exp e;
         | Plus (x, y) -> fprintf fout "plus\n"; output_exp x; output_exp y;

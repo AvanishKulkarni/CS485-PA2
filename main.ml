@@ -478,12 +478,17 @@ let main () = begin
         ) (List.rev attributes);
         List.iter (fun ((mloc, mname), formal_list, (typeloc, mtype),_) ->
             (* Checks each formal parameter to see if the type exists *)
-            List.iter (fun ((_, fname), (ftloc, ftype))->
+            List.iter (fun ((floc, fname), (ftloc, ftype))->
                 if not ((List.mem ftype all_classes)) then begin
                     printf "ERROR: %s: Type-Check: class %s has method %s with formal parameter of unknown type %s\n" ftloc cname mname ftype;
                     exit 1;
                 end;
+                if fname = "self" then begin
+                    printf "ERROR: %s: Type-Check: class %s has method %s with formal parameter named self\n" floc cname mname;
+                    exit 1;
+                end;
             ) formal_list;
+            
             (* Checks the return type to see if the type exists *)
             if not (List.mem mtype all_classes) && (mtype <> "SELF_TYPE")then begin
                 printf "ERROR: %s: Type-Check: class %s has method %s with unknown return type %s\n" typeloc cname mname mtype;

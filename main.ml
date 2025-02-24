@@ -348,7 +348,7 @@ let main () = begin
       seen := SeenSet.add cname !seen;
 
       match inherits with
-        | None -> Hashtbl.add inheritance ("Object") ( cname) (* inherits from Object by default *)
+        | None -> Hashtbl.add inheritance ("Object") (cname); (* inherits from Object by default *)
         | Some(iloc, iname) -> (* inherited type identifier *)
             if List.mem iname illegal_inherit_classes then begin 
                 printf "ERROR: %s: Type-Check: class %s inherits from %s\n" iloc cname iname ;
@@ -555,6 +555,9 @@ let main () = begin
         printf "%s " cname;
     ) all_classes;
     printf "\n"; *)
+    List.iter (fun ((_, aname), _, _) ->
+        printf "%s" aname;
+        ) (Hashtbl.find_all class_map_attr "Weird");
 
     (* Check for self and SELF_TYPE errors in classes/methods *)
 

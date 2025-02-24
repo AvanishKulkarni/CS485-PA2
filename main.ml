@@ -330,46 +330,48 @@ let main () = begin
 
     (* BLOCK 0 BEGIN *)
     List.iter (fun ((cloc, cname), inherits, features) -> 
-      if cname = "SELF_TYPE" then begin 
-        printf "ERROR: %s: Type-Check: class named SELF_TYPE\n" cloc ;
-        exit 1;
-      end;
-      if List.mem cname user_classes && List.mem cname base_classes then begin
-        printf "ERROR: %s: Type-Check: class %s redefined\n" cloc cname ;
-        exit 1;
-      end ;
+        if cname = "SELF_TYPE" then begin 
+            printf "ERROR: %s: Type-Check: class named SELF_TYPE\n" cloc ;
+            exit 1;
+        end;
+        if List.mem cname user_classes && List.mem cname base_classes then begin
+            printf "ERROR: %s: Type-Check: class %s redefined\n" cloc cname ;
+            exit 1;
+        end ;
 
-      (* Check for duplicate classes *)
-      if SeenSet.mem cname !seen then begin
-        printf "ERROR: %s: Type-Check: class %s redefined\n" cloc cname ;
-        exit 1;
-      end;
+        (* Check for duplicate classes *)
+        if SeenSet.mem cname !seen then begin
+            printf "ERROR: %s: Type-Check: class %s redefined\n" cloc cname ;
+            exit 1;
+        end;
 
-      seen := SeenSet.add cname !seen;
-
-      match inherits with
-        | None -> Hashtbl.add inheritance ("Object") (cname); (* inherits from Object by default *)
-        | Some(iloc, iname) -> (* inherited type identifier *)
-            if List.mem iname illegal_inherit_classes then begin 
-                printf "ERROR: %s: Type-Check: class %s inherits from %s\n" iloc cname iname ;
-                exit 1;
-            end ;
-            if not (List.mem iname all_classes) then begin
-                printf "ERROR: %s: Type-Check: class %s inherits from unknown class %s\n" iloc cname iname ;
-                exit 1;
-            end ;
-            Hashtbl.add inheritance (iname) (cname);
-      
-        (* iterate through features, match to attribute or method, add to hashtbl *)
-      match features with
+        seen := SeenSet.add cname !seen;
+            (* iterate through features, match to attribute or method, add to hashtbl *)
+        match features with
         | [] -> printf ""
         | lst ->
             List.iter(fun feat ->
                 match feat with
                 | Attribute(aid, atype, Some(aexp)) -> Hashtbl.add class_map_attr cname (aid, atype, Some(aexp));
-                | Attribute(aid, atype, None) -> Hashtbl.add class_map_attr cname (aid, atype, None);
+                | Attribute(aid, atype, None) -> 
+                    Hashtbl.add class_map_attr cname (aid, atype, None);
                 | Method(mid, formal_list, mtype, mexp) -> Hashtbl.add class_map_method cname (mid, formal_list, mtype, mexp);
             ) lst;
+        ;
+        match inherits with
+            | None -> 
+                Hashtbl.add inheritance ("Object") (cname); (* inherits from Object by default *)
+            | Some(iloc, iname) -> (* inherited type identifier *)
+                if List.mem iname illegal_inherit_classes then begin 
+                    printf "ERROR: %s: Type-Check: class %s inherits from %s\n" iloc cname iname ;
+                    exit 1;
+                end ;
+                if not (List.mem iname all_classes) then begin
+                    printf "ERROR: %s: Type-Check: class %s inherits from unknown class %s\n" iloc cname iname ;
+                    exit 1;
+                end ;
+                Hashtbl.add inheritance (iname) (cname);
+        ;
         
     ) ast;     
     (* Check for missing main in Main *)
@@ -555,12 +557,27 @@ let main () = begin
         printf "%s " cname;
     ) all_classes;
     printf "\n"; *)
-    List.iter (fun ((_, aname), _, _) ->
+    (* List.iter (fun ((_, aname), _, _) ->
         printf "%s" aname;
-        ) (Hashtbl.find_all class_map_attr "Weird");
+        ) (Hashtbl.find_all class_map_attr "Weird"); *)
 
     (* Check for self and SELF_TYPE errors in classes/methods *)
-
+    (* Hashtbl.iter (fun (aclass) (_,_,_) -> 
+        printf "%s: " aclass;
+        let attributes = Hashtbl.find_all class_map_attr aclass in 
+        List.iter (fun ((_,aname),_,_) -> 
+            printf "%s " aname    
+        ) attributes;
+        printf "\n";
+    ) class_map_attr; *)
+    (* Hashtbl.iter (fun (aclass) (_,_,_, _) -> 
+        printf "%s: " aclass;
+        let methods = Hashtbl.find_all class_map_method aclass in 
+        List.iter (fun ((_,aname),_,_, _) -> 
+            printf "%s " aname    
+        ) methods;
+        printf "\n";
+    ) class_map_method; *)
     (* MORE *)
 
     (* Error checking complete *)

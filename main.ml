@@ -64,6 +64,19 @@ let inheritance: (name, name) Hashtbl.t = Hashtbl.create 255
 let class_map_attr: (name, id * cool_type * exp option) Hashtbl.t = Hashtbl.create 255
 let class_map_method: (name, id * formal list * cool_type * exp) Hashtbl.t = Hashtbl.create 255
 
+(* Is x a subtype of y *)
+let is_subtype x y = 
+    match x, y with 
+    | x, y when x = y -> true (* same type *)
+    | x, "Object" -> true (* subtype object *)
+    | x, y -> let rec dfs_helper vert = (* checking inheritance map *)
+        if vert = x then true
+        else
+            let children = Hashtbl.find_all inheritance vert in
+            List.exists dfs_helper children
+        in 
+        dfs_helper y
+
 let main () = begin 
     (* De-serialize CL-AST file *)
     let fname = Sys.argv.(1) in 
@@ -250,6 +263,41 @@ let main () = begin
 
     (* Check for class-related errors *)
 
+    (*
+    OUTLINE - 
+        BLOCK 0
+        - class named SELF_TYPE
+        - redef base classes 
+        - class redef
+        - duplicate classes 
+        - inherits from illegal class
+        - inherits from unknown class
+        - missing main class
+        - inheritance cycle
+
+        BLOCK 1
+        - attribute redefinition 
+        - method redefinition 
+        - duplicate formal params in methods 
+
+        BLOCK 2
+        - attribute of unknown type
+        - attribute named self
+        - inherited redefined attribute
+        - duplicate attribute
+        - method with formals of unknown type
+        - method with unknown return type
+        - redef method return type 
+        - redef method formal number
+        - redef method formal type 
+
+        Remaining
+        - main method not found 
+        - main method with 0 params not found 
+    
+    
+    *)
+
     let illegal_inherit_classes = ["Int"; "Bool"; "String"] in
     let base_classes = ["Int"; "Bool" ; "String"; "IO"; "Object"] in 
     let user_classes = List.map(fun ((_,cname),_,_) ->  cname ) ast in 
@@ -286,7 +334,7 @@ let main () = begin
         printf "ERROR: %s: Type-Check: class named SELF_TYPE\n" cloc ;
         exit 1;
       end;
-      if List.mem cname user_classes && List.mem cname base_classes then begin (* Need to add a way to check for duplicates in user_classes - would have same*)
+      if List.mem cname user_classes && List.mem cname base_classes then begin
         printf "ERROR: %s: Type-Check: class %s redefined\n" cloc cname ;
         exit 1;
       end ;
@@ -312,7 +360,7 @@ let main () = begin
             end ;
             Hashtbl.add inheritance (iname) (cname);
       
-            (* iterate through features, match to attribute or method, add to hashtbl *)
+        (* iterate through features, match to attribute or method, add to hashtbl *)
       match features with
         | [] -> printf ""
         | lst ->
@@ -325,7 +373,7 @@ let main () = begin
         
     ) ast;     
     (* Check for missing main in Main *)
-    if not (List.mem ( "Main") all_classes) then begin 
+    if not (List.mem ("Main") all_classes) then begin 
         printf "ERROR: 0: Type-Check: class Main not found\n";
         exit 1;
     end;
@@ -401,20 +449,6 @@ let main () = begin
         ) (List.rev meth_list);
     ) all_classes;
     (* BLOCK 1 END *)
-
-    (* Is x a subtype of y *)
-    let is_subtype x y = 
-        match x, y with 
-        | x, y when x = y -> true (* same type *)
-        | x, "Object" -> true (* subtype object *)
-        | x, y -> let rec dfs_helper vert = (* checking inheritance map *)
-            if vert = x then true
-            else
-                let children = Hashtbl.find_all inheritance vert in
-                List.exists dfs_helper children
-            in 
-            dfs_helper y
-    in
 
     (* BLOCK 2 BEGIN *)
     (* Type Checking features *)

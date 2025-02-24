@@ -1,5 +1,9 @@
 class Main inherits IO {
-    a : Int <- 1 +2;
+    a : Int <- (1 + 2)
+    -4 +
+    (5*
+    (2-
+    3));
     b : Int <- 1 - 2;
     c : Int <- 1 * 2;
     d : Int <- 4 / 2;
@@ -10,8 +14,9 @@ class Main inherits IO {
     i : Bool <- not false;
     j : Int <- ~10;
     k : Object <-
-    while true loop
-        2
+    let test : Int <- 1 in
+    while test < 3 loop
+        test <- test + 1
     pool;
     l : Int <-
     if true then
@@ -37,7 +42,7 @@ class A inherits Main {
 };
 
 class B inherits Main {
-    charlie : Int <- 2-5;
+    charlie : Int <- a-5;
     delta : String <- "Hello";
 };
 

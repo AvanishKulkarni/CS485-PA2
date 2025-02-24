@@ -23,3 +23,43 @@ main method disabled after redoing attribute initializer printing
 
 main method enabled after redoing attribute initializer printing
 3 6 7 8 9 10 11 13 14 17 18 19 22 23 25 26 27 28 29 30 34 35 37
+
+4 5 12 36
+Bot 25 - Main Method check
+Test 1: FAILED
+Test 2: FAILED
+Test 3: PASSED
+Test 4: FAILED
+Test 5: FAILED
+Test 6: PASSED
+Test 7: PASSED
+Test 8: PASSED
+Test 9: PASSED
+Test 10: PASSED
+Test 11: PASSED
+Test 12: FAILED
+Test 13: PASSED
+Test 14: PASSED
+Test 15: FAILED
+Test 16: FAILED
+Test 17: PASSED
+Test 18: PASSED
+Test 19: PASSED
+Test 20: FAILED
+Test 21: FAILED
+Test 22: PASSED
+Test 23: PASSED
+Test 24: FAILED
+Test 25: PASSED
+Test 26: PASSED
+Test 27: PASSED
+Test 28: PASSED
+Test 29: PASSED
+Test 30: PASSED
+Test 31: FAILED
+Test 32: FAILED
+Test 33: FAILED
+Test 34: PASSED
+Test 35: PASSED
+Test 36: PASSED
+Test 37: PASSED 

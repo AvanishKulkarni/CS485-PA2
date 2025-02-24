@@ -284,17 +284,17 @@ let main () = begin
     List.iter (fun ((cloc, cname), inherits, features) -> 
       if cname = "SELF_TYPE" then begin 
         printf "ERROR: %s: Type-Check: class named SELF_TYPE\n" cloc ;
-        exit 1
+        exit 1;
       end;
       if List.mem cname user_classes && List.mem cname base_classes then begin (* Need to add a way to check for duplicates in user_classes - would have same*)
         printf "ERROR: %s: Type-Check: class %s redefined\n" cloc cname ;
-        exit 1
+        exit 1;
       end ;
 
       (* Check for duplicate classes *)
       if SeenSet.mem cname !seen then begin
         printf "ERROR: %s: Type-Check: class %s redefined\n" cloc cname ;
-        exit 1
+        exit 1;
       end;
 
       seen := SeenSet.add cname !seen;
@@ -304,11 +304,11 @@ let main () = begin
         | Some(iloc, iname) -> (* inherited type identifier *)
             if List.mem iname illegal_inherit_classes then begin 
                 printf "ERROR: %s: Type-Check: class %s inherits from %s\n" iloc cname iname ;
-                exit 1
+                exit 1;
             end ;
             if not (List.mem iname all_classes) then begin
                 printf "ERROR: %s: Type-Check: class %s inherits from unknown class %s\n" iloc cname iname ;
-                exit 1
+                exit 1;
             end ;
             Hashtbl.add inheritance (iname) (cname);
       
@@ -327,7 +327,7 @@ let main () = begin
     (* Check for missing main in Main *)
     if not (List.mem ( "Main") all_classes) then begin 
         printf "ERROR: 0: Type-Check: class Main not found\n";
-        exit 1
+        exit 1;
     end;
 
     (* Checking for inhertance cycle *)
@@ -360,7 +360,7 @@ let main () = begin
           printf " %s" x
         ) reverse_sorted_cycle ;
         printf "\n";
-        exit 1 
+        exit 1 ;
       end
     ) all_classes ; 
     (* BLOCK 0 END *)
@@ -463,7 +463,7 @@ let main () = begin
                         exit 1;
                     end;
                     (* Checking for # of formals change *)
-                    if (List.length formal_list <> List.length iformal_list) then begin
+                    if ((List.length formal_list) <> (List.length iformal_list)) then begin
                         printf "ERROR: %s: Type-Check: class %s redefines method %s and changes number of formals\n" mloc cname mname;
                         exit 1;
                     end;
@@ -507,7 +507,7 @@ let main () = begin
     let method_names = List.map (fun ((_,name),_,_,_) -> name) main_methods in 
     if not(List.mem "main" method_names) then begin 
         printf "ERROR: 0: Type-Check: class Main method main not found\n";
-        exit 1
+        exit 1;
     end;
     (* Checking to see if the main method has zero parameters *)
     List.iter (fun ((_,name),formals,_,_)->

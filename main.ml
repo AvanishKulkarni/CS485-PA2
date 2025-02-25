@@ -767,7 +767,8 @@ let main () =
   let sorted_all_classes = List.sort compare all_classes in
 
   (* Function to print class map *)
-  let print_class_map fout sorted_classes class_map_attr output_exp =
+  let print_class_map fout (sorted_classes : loc list) class_map_attr output_exp
+      =
     fprintf fout "class_map\n%d\n" (List.length all_classes);
 
     List.iter
@@ -785,11 +786,12 @@ let main () =
                 output_exp init)
           (List.rev attributes)
         (* Attributes are stored in reverse order due to how insertion into hash tables work*))
-      sorted_all_classes
+      sorted_classes
   in
 
   (* Function to print implementation map *)
-  let print_impl_map fout sorted_classes class_map_method output_exp =
+  let print_impl_map fout (sorted_classes : loc list) class_map_method
+      output_exp =
     fprintf fout "implementation_map\n%d\n" (List.length all_classes);
     List.iter
       (fun cname ->
@@ -818,11 +820,26 @@ let main () =
                 output_exp dummy_exp)
               mformals)
           (List.rev methods))
-      sorted_all_classes
+      sorted_classes
   in
 
-  let print_parent_map sorted_classes inheritance =
-    fprintf fout "parent_map\n%d\n" (Hashtbl.length inheritance)
+  let find_parent cname inheritance =
+    Hashtbl.fold
+      (fun parent v acc -> if v = cname then Some parent else acc)
+      inheritance None
+  in
+
+  let print_parent_map fout (sorted_classes : loc list) inheritance =
+    fprintf fout "parent_map\n%d\n" (Hashtbl.length inheritance);
+    List.iter
+      (fun cname ->
+        if cname <> "Object" then
+          let parent = find_parent cname inheritance in
+          fprintf fout "%s\n%s\n" cname
+            (match parent with
+            | Some parent -> parent
+            | None -> "BUG FOUND - find_parent cannot find parent!!!!"))
+      sorted_classes
   in
 
   (* No arguments provided *)
@@ -837,7 +854,7 @@ let main () =
   | [ prog; coolprog; arg ] when arg = "--class-map" ->
       print_class_map fout sorted_all_classes class_map_attr output_exp
   | [ prog; coolprog; arg ] when arg = "--parent-map" ->
-      print_parent_map sorted_all_classes inheritance
+      print_parent_map fout sorted_all_classes inheritance
   | [ prog; coolprog; arg ] when arg = "--imp-map" ->
       print_impl_map fout sorted_all_classes class_map_method output_exp
   | _ -> printf "something went very wrong\n");

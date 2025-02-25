@@ -676,6 +676,7 @@ let main () =
 
   let rec output_exp e =
     fprintf fout "%d\n" e.loc;
+    (* Output type annotation *)
     (match e.static_type with
     | None -> fprintf fout ""
     | Some (Class c) -> fprintf fout "%s\n" c

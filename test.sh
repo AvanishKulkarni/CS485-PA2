@@ -1,6 +1,6 @@
 #!/bin/bash
 if [ main.ml -nt main ]; then
-    ocamlc main.ml -o main 
+    ocamlopt main.ml -o main 
 fi
 goodCount=0
 badCount=0
@@ -16,8 +16,8 @@ function run_tests() {
     rm -f reference_error.txt
     rm -f test_error.txt
     cool --parse "$1"
-    ./main "$1-ast" > test_error.txt
-    cool --type "$1" --out temp_ref > reference_error.txt
+    ./main "$1-ast" --class-map > test_error.txt
+    cool --class-map "$1" --out temp_ref > reference_error.txt
 
     if [ -f "temp_ref.cl-type" ]; then
         diff -b -B -w temp_ref.cl-type "$1-type" > /dev/null

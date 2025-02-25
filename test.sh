@@ -17,7 +17,7 @@ function run_tests() {
     rm -f test_error.txt
     cool --parse "$1"
     ./main "$1-ast" > test_error.txt
-    cool --class-map "$1" --out temp_ref > reference_error.txt
+    cool --type "$1" --out temp_ref > reference_error.txt
 
     if [ -f "temp_ref.cl-type" ]; then
         diff -b -B -w temp_ref.cl-type "$1-type" > /dev/null

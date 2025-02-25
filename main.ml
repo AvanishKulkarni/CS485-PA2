@@ -764,30 +764,83 @@ let main () =
     | ObjectMethod _ -> ()
   in
 
-  fprintf fout "class_map\n%d\n" (List.length all_classes);
   let sorted_all_classes = List.sort compare all_classes in
-  List.iter
-    (fun cname ->
-      fprintf fout "%s\n" cname;
-      let attributes = Hashtbl.find_all class_map_attr cname in
-      (* let attributes = List.sort (fun ((a,_),_,_) ((b,_),_,_) -> 
-            let a = int_of_string(a) in
-            let b = int_of_string(b) in
-            compare a b
-        ) attributes in *)
-      fprintf fout "%d\n" (List.length attributes);
-      List.iter
-        (fun attr ->
-          match attr with
-          | (_, aname), (_, atype), None ->
-              fprintf fout "no_initializer\n%s\n%s\n" aname atype
-          | (_, aname), (_, atype), Some init ->
-              fprintf fout "initializer\n%s\n%s\n" aname atype;
-              output_exp init)
-        (List.rev attributes)
-      (* Attributes are stored in reverse order due to how insertion into hash tables work*))
-    sorted_all_classes;
 
+  (* Function to print class map *)
+  let print_class_map fout sorted_classes class_map_attr output_exp =
+    fprintf fout "class_map\n%d\n" (List.length all_classes);
+
+    List.iter
+      (fun cname ->
+        fprintf fout "%s\n" cname;
+        let attributes = Hashtbl.find_all class_map_attr cname in
+        fprintf fout "%d\n" (List.length attributes);
+        List.iter
+          (fun attr ->
+            match attr with
+            | (_, aname), (_, atype), None ->
+                fprintf fout "no_initializer\n%s\n%s\n" aname atype
+            | (_, aname), (_, atype), Some init ->
+                fprintf fout "initializer\n%s\n%s\n" aname atype;
+                output_exp init)
+          (List.rev attributes)
+        (* Attributes are stored in reverse order due to how insertion into hash tables work*))
+      sorted_all_classes
+  in
+
+  (* Function to print implementation map *)
+  let print_impl_map fout sorted_classes class_map_method output_exp =
+    fprintf fout "implementation_map\n%d\n" (List.length all_classes);
+    List.iter
+      (fun cname ->
+        fprintf fout "%s\n" cname;
+        let methods = Hashtbl.find_all class_map_method cname in
+        fprintf fout "%d\n" (List.length methods);
+        List.iter
+          (fun meth ->
+            let (_, mname), mformals, _, _ = meth in
+            fprintf fout "%s\n%d\n" mname (List.length mformals);
+            List.iter
+              (fun ((_, fmname), _) ->
+                fprintf fout "%s\n" fmname;
+                fprintf fout "%s\n" cname;
+                (* TODO: If this method is inherited but NOT OVERIDDEN 
+              Output the name of the highest parent class that defined 
+              the method body expression, otherwise output current class *)
+                let dummy_exp =
+                  (* TODO: output actual method body expression *)
+                  {
+                    loc = "0";
+                    exp_kind = Integer "0";
+                    static_type = Some (Class "Int");
+                  }
+                in
+                output_exp dummy_exp)
+              mformals)
+          (List.rev methods))
+      sorted_all_classes
+  in
+
+  let print_parent_map sorted_classes inheritance =
+    fprintf fout "parent_map\n%d\n" (Hashtbl.length inheritance)
+  in
+
+  (* No arguments provided *)
+  let args_array = Array.to_list Sys.argv in
+  (match args_array with
+  | [ prog ] -> printf "Usage: %s program.cl-ast\n" prog
+  | [ prog; coolprog ] ->
+      (* TEMP SET to only print class map for PA2C2 *)
+      print_class_map fout sorted_all_classes class_map_attr output_exp
+  (* print_impl_map fout sorted_all_classes class_map_method output_exp;
+      print_parent_map sorted_all_classes inheritance *)
+  | [ prog; coolprog; arg ] when arg = "--class-map" ->
+      print_class_map fout sorted_all_classes class_map_attr output_exp
+  | [ prog; coolprog; arg ] when arg = "--parent-map" ->
+      print_parent_map sorted_all_classes inheritance
+  | [ prog; coolprog; arg ] when arg = "--imp-map" ->
+      print_impl_map fout sorted_all_classes class_map_method output_exp
+  | _ -> printf "something went very wrong\n");
   close_out fout
 ;;
 

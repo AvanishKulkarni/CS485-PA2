@@ -4,7 +4,9 @@ class Main inherits IO {
             let x: Int <- 1 in {
                 out_string("1\n");
             };
-            out_int(x+1);
+            out_int(1
+                +x
+            );
         }
     };
 

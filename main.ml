@@ -48,8 +48,8 @@ and exp_kind =
   | Eq of exp * exp
   | Not of exp
   | Negate of exp
-  | Integer of string (* int *)
-  | String of string (* string *)
+  | Integer of int
+  | String of string
   | Identifier of id
   | Bool of string (* bool *)
   | Let of binding list * exp
@@ -68,6 +68,13 @@ let class_map_attr : (name, id * cool_type * exp option) Hashtbl.t =
 
 let class_map_method : (name, id * formal list * cool_type * exp) Hashtbl.t =
   Hashtbl.create 255
+
+(*defined this way so we can make arbitrary new object_envs *)
+type obj_env = (name, static_type) Hashtbl.t
+type meth_env = (cool_class * feature, formal list) Hashtbl.t
+
+let empty_obj_env : obj_env = Hashtbl.create 255
+let empty_meth_env : meth_env = Hashtbl.create 255
 
 (* Is x a subtype of y *)
 let is_subtype (x : name) (y : name) =
@@ -250,7 +257,7 @@ let main () =
           Negate x
       | "integer" ->
           let ival = read () in
-          Integer ival
+          Integer (int_of_string ival)
       | "string" ->
           let sval = read () in
           String sval
@@ -279,42 +286,7 @@ let main () =
   let ast = read_cool_program () in
   close_in fin;
 
-  (* Check for class-related errors *)
-
-  (*
-    OUTLINE - 
-        BLOCK 0
-        - class named SELF_TYPE
-        - redef base classes 
-        - class redef
-        - duplicate classes 
-        - inherits from illegal class
-        - inherits from unknown class
-        - missing main class
-        - inheritance cycle
-
-        BLOCK 1
-        - attribute redefinition 
-        - method redefinition 
-        - duplicate formal params in methods 
-
-        BLOCK 2
-        - attribute of unknown type
-        - attribute named self
-        - inherited redefined attribute
-        - duplicate attribute
-        - method with formals of unknown type
-        - method with unknown return type
-        - redef method return type 
-        - redef method formal number
-        - redef method formal type 
-
-        Remaining
-        - main method not found 
-        - main method with 0 params not found 
-    
-    
-    *)
+  (* BEGIN Check for class-related errors *)
   let illegal_inherit_classes = [ "Int"; "Bool"; "String" ] in
   let base_classes = [ "Int"; "Bool"; "String"; "IO"; "Object" ] in
   let user_classes = List.map (fun ((_, cname), _, _) -> cname) ast in
@@ -322,6 +294,7 @@ let main () =
   let all_classes = List.sort compare all_classes in
   let seen = ref SeenSet.empty in
 
+  (* Add all built-in classes and their methods to Hashtbls *)
   Hashtbl.add inheritance "Object" "Int";
   Hashtbl.add inheritance "Object" "Bool";
   Hashtbl.add inheritance "Object" "String";
@@ -384,13 +357,13 @@ let main () =
         look for inheritance from Int 
         look for inheritance from Undeclared Class
     *)
-
-  (* BLOCK 0 BEGIN *)
   List.iter
     (fun ((cloc, cname), inherits, features) ->
+      (* Class named SELF_TYPE *)
       if cname = "SELF_TYPE" then (
         printf "ERROR: %d: Type-Check: class named SELF_TYPE\n" cloc;
         exit 1);
+      (* Redefining base classes *)
       if List.mem cname user_classes && List.mem cname base_classes then (
         printf "ERROR: %d: Type-Check: class %s redefined\n" cloc cname;
         exit 1);
@@ -432,12 +405,13 @@ let main () =
             exit 1);
           Hashtbl.add inheritance iname cname)
     ast;
+
   (* Check for missing main in Main *)
   if not (List.mem "Main" all_classes) then (
     printf "ERROR: 0: Type-Check: class Main not found\n";
     exit 1);
 
-  (* Checking for inhertance cycle *)
+  (* Checking for inheritance cycle *)
   let visited = ref [] in
   let cycle = ref [] in
   let rec cycle_check cname =
@@ -467,9 +441,6 @@ let main () =
         exit 1))
     all_classes;
 
-  (* BLOCK 0 END *)
-
-  (* BLOCK 1 BEGIN *)
   (* Check for duplicate attributes, methods with each class *)
   (* Check for duplicates in formal list *)
   List.iter
@@ -513,9 +484,6 @@ let main () =
         (List.rev meth_list))
     all_classes;
 
-  (* BLOCK 1 END *)
-
-  (* BLOCK 2 BEGIN *)
   (* Type Checking features *)
   let rec feature_check iname cname =
     let inherited_methods = Hashtbl.find_all class_map_method iname in
@@ -641,34 +609,56 @@ let main () =
   let all_classes = List.rev !visited in
   (* top sorted *)
 
-  (* List.iter (fun (cname) -> 
-        printf "%s " cname;
-    ) all_classes;
-    printf "\n"; *)
-  (* List.iter (fun ((_, aname), _, _) ->
-        printf "%s" aname;
-        ) (Hashtbl.find_all class_map_attr "Weird"); *)
+  (* Class Error checking complete *)
 
-  (* Check for self and SELF_TYPE errors in classes/methods *)
-  (* Hashtbl.iter (fun (aclass) (_,_,_) -> 
-        printf "%s: " aclass;
-        let attributes = Hashtbl.find_all class_map_attr aclass in 
-        List.iter (fun ((_,aname),_,_) -> 
-            printf "%s " aname    
-        ) attributes;
-        printf "\n";
-    ) class_map_attr; *)
-  (* Hashtbl.iter (fun (aclass) (_,_,_, _) -> 
-        printf "%s: " aclass;
-        let methods = Hashtbl.find_all class_map_method aclass in 
-        List.iter (fun ((_,aname),_,_, _) -> 
-            printf "%s " aname    
-        ) methods;
-        printf "\n";
-    ) class_map_method; *)
-  (* MORE *)
+  (* Begin Expression type-checking *)
 
-  (* Error checking complete *)
+  let rec tc (o : obj_env) (m : meth_env) (exp : exp) : static_type =
+    let static_type =
+      match exp.exp_kind with
+      | Assign (i, e1) -> Class "void"
+      | Dynamic_Dispatch (e1, i, elist) -> Class "void"
+      | Static_Dispatch (e1, i1, i2, elist) -> Class "void"
+      | Self_Dispatch (i, elist) -> Class "void"
+      | If (e1, e2, e3) -> Class "void"
+      | While (e1, e2) -> Class "void"
+      | Block elist -> Class "void"
+      | New i -> Class "void"
+      | Isvoid e -> Class "void"
+      | Plus (e1, e2) | Minus (e1, e2) | Times (e1, e2) | Divide (e1, e2) ->
+          let t1 = tc o m e1 in
+          let t2 = tc o m e2 in
+          if t1 <> Class "Int" || t2 <> Class "Int" then (
+            printf
+              "ERROR: %d: Type-Check: arithmetic on %s %s instead of Ints\n"
+              exp.loc (type_to_str t1) (type_to_str t2);
+            exit 1);
+          Class "Int"
+      | Lt (e1, e2) -> Class "void"
+      | Le (e1, e2) -> Class "void"
+      | Eq (e1, e2) -> Class "void"
+      | Not e1 -> Class "void"
+      | Negate e1 -> Class "void"
+      | Integer c -> Class "Int"
+      | String c -> Class "String"
+      | Identifier (iloc, iname) ->
+          if Hashtbl.mem o iname then Hashtbl.find o iname
+          else (
+            printf "ERROR: %d: Type-Check: unbound identifier %s\n" iloc iname;
+            exit 1)
+      | Bool c -> Class "Bool"
+      | Let (bindlist, e) -> Class "void"
+      | Case (e1, caselist) -> Class "void"
+      | IOMethod c -> Class "void"
+      | ObjectMethod c -> Class "void"
+      | StringMethod c -> Class "void"
+    in
+    (* write to type field *)
+    exp.static_type <- Some static_type;
+    static_type
+  in
+
+  (* Expression type-checking completed *)
 
   (* Emit CL-TYPE File *)
   let cltname = Filename.chop_extension fname ^ ".cl-type" in
@@ -751,7 +741,7 @@ let main () =
     | Negate x ->
         fprintf fout "negate\n";
         output_exp x
-    | Integer ival -> fprintf fout "integer\n%s\n" ival
+    | Integer ival -> fprintf fout "integer\n%d\n" ival
     | String sval -> fprintf fout "string\n%s\n" sval
     | Identifier (loc, name) -> fprintf fout "identifier\n%d\n%s\n" loc name
     | Bool bval -> fprintf fout "%s\n" bval
@@ -832,7 +822,7 @@ let main () =
                   (* TODO: output actual method body expression *)
                   {
                     loc = 0;
-                    exp_kind = Integer "0";
+                    exp_kind = Integer 0;
                     static_type = Some (Class "Int");
                   }
                 in

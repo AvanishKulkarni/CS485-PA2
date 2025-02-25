@@ -84,6 +84,22 @@ let is_subtype x y =
 
 let main () =
   (* De-serialize CL-AST file *)
+  let args_array = Array.to_list Sys.argv in
+  if List.length args_array < 2 then (
+    printf "COOL Semantic Checker (by Allen Cabrera, Avanish Kulkarni)\n\n";
+    printf "Usage: %s source.cl-ast [options]\n\n" Sys.argv.(0);
+    printf
+      "  --class-map\tstop after type checking (produce source.cl-type class \
+       map file)\n";
+    printf
+      "  --imp-map\tstop after type checking (produce source.cl-type imp map \
+       file)\n";
+    printf
+      "  --parent-map\tstop after type checking (produce source.cl-type parent \
+       map file)\n";
+
+    exit 1);
+
   let fname = Sys.argv.(1) in
   let fin = open_in fname in
 
@@ -842,15 +858,12 @@ let main () =
       sorted_classes
   in
 
-  (* No arguments provided *)
-  let args_array = Array.to_list Sys.argv in
   (match args_array with
-  | [ prog ] -> printf "Usage: %s program.cl-ast\n" prog
   | [ prog; coolprog ] ->
       (* TEMP SET to only print class map for PA2C2 *)
-      print_class_map fout sorted_all_classes class_map_attr output_exp
-  (* print_impl_map fout sorted_all_classes class_map_method output_exp;
-      print_parent_map sorted_all_classes inheritance *)
+      print_class_map fout sorted_all_classes class_map_attr output_exp;
+      print_impl_map fout sorted_all_classes class_map_method output_exp;
+      print_parent_map fout sorted_all_classes inheritance
   | [ prog; coolprog; arg ] when arg = "--class-map" ->
       print_class_map fout sorted_all_classes class_map_attr output_exp
   | [ prog; coolprog; arg ] when arg = "--parent-map" ->
@@ -858,6 +871,7 @@ let main () =
   | [ prog; coolprog; arg ] when arg = "--imp-map" ->
       print_impl_map fout sorted_all_classes class_map_method output_exp
   | _ -> printf "something went very wrong\n");
+
   close_out fout
 ;;
 

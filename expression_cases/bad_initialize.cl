@@ -1,6 +1,10 @@
 class Main inherits IO {
 
-    x: Int <- false;
+    x: 
+    Int 
+    <- 
+    false
+    ;
 
     main(): Int {
         0

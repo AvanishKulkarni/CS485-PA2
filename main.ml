@@ -616,7 +616,17 @@ let main () =
   let rec tc (o : obj_env) (m : meth_env) (exp : exp) : static_type =
     let static_type =
       match exp.exp_kind with
-      | Assign (i, e1) -> Class "void"
+      | Assign (i, e1) ->
+          (* [ASSIGN] *)
+          let typeloc, typename = i in
+          let exp_type = tc o m e1 in
+          if not (is_subtype (type_to_str exp_type) typename) then (
+            printf
+              "ERROR: %d: Type-Check: %s does not conform to %s in initialized \
+               attribute\n"
+              typeloc (type_to_str exp_type) typename;
+            exit 1);
+          Class "void"
       | Dynamic_Dispatch (e1, i, elist) -> Class "void"
       | Static_Dispatch (e1, i1, i2, elist) -> Class "void"
       | Self_Dispatch (i, elist) -> Class "void"

@@ -73,8 +73,8 @@ let class_map_method : (name, id * formal list * cool_type * exp) Hashtbl.t =
 type obj_env = (name, static_type) Hashtbl.t
 type meth_env = (cool_class * feature, formal list) Hashtbl.t
 
-let empty_obj_env : obj_env = Hashtbl.create 255
-let empty_meth_env : meth_env = Hashtbl.create 255
+let global_obj_env : obj_env = Hashtbl.create 255
+let global_meth_env : meth_env = Hashtbl.create 255
 
 (* Is x a subtype of y *)
 let is_subtype (x : name) (y : name) =
@@ -647,7 +647,36 @@ let main () =
             printf "ERROR: %d: Type-Check: unbound identifier %s\n" iloc iname;
             exit 1)
       | Bool c -> Class "Bool"
-      | Let (bindlist, e) -> Class "void"
+      | Let (bindlist, let_body) ->
+          (* Let rules *)
+          (* Add all variables in the letexpr to the scope *)
+          List.iter
+            (* typename is the T_0 in the type rule. T_1 (binit) must be <= T_0 *)
+            (fun (Binding ((vloc, vname), (typeloc, typename), binit)) ->
+              match binit with
+              (* [Let-Init] *)
+              | Some binit ->
+                  let binit_type = tc o m binit in
+                  if not (is_subtype (type_to_str binit_type) typename) then (
+                    printf
+                      "ERROR: %d: Type-Check: initializer %s does not conform \
+                       to %s\n"
+                      vloc (type_to_str binit_type) typename;
+                    exit 1)
+              (* [Let-No-Init] *)
+              | None -> Hashtbl.add o vname (Class typename))
+            bindlist;
+          (* Typecheck let_body with newly bound variables *)
+          let body_type = tc o m let_body in
+
+          (* Remove all variables in the letexpr from the scope *)
+          List.iter
+            (fun (Binding ((vloc, vname), (typeloc, typenam), binit)) ->
+              match binit with
+              | Some binit -> ()
+              | None -> Hashtbl.remove o vname)
+            bindlist;
+          body_type
       | Case (e1, caselist) -> Class "void"
       | IOMethod c -> Class "void"
       | ObjectMethod c -> Class "void"
@@ -788,10 +817,22 @@ let main () =
         List.iter
           (fun attr ->
             match attr with
-            | (_, aname), (_, atype), None ->
+            | (aloc, aname), (_, atype), None ->
                 fprintf fout "no_initializer\n%s\n%s\n" aname atype
-            | (_, aname), (_, atype), Some init ->
+            | (aloc, aname), (_, atype), Some init ->
                 fprintf fout "initializer\n%s\n%s\n" aname atype;
+                (* THIS IS WRONG -- add features to object enviroment *)
+                let o = global_obj_env in
+                (* THIS IS WRONG -- add methods to method environment *)
+                let m = global_meth_env in
+
+                let init_type = tc o m init in
+                if not (is_subtype (type_to_str init_type) atype) then (
+                  printf
+                    "ERROR: %d: Type-Check: %s does not conform to %s in \
+                     initialized attribute\n"
+                    aloc (type_to_str init_type) atype;
+                  exit 1);
                 output_exp init)
           (List.rev attributes)
         (* Attributes are stored in reverse order due to how insertion into hash tables work*))

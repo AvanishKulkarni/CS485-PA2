@@ -309,7 +309,7 @@ let main () =
     ( (0, "abort"),
       [],
       (0, "Object"),
-      { loc = 0; exp_kind = Object ""; static_type = None } );
+      { loc = 0; exp_kind = Object "Object"; static_type = None } );
   Hashtbl.add class_map_method "Object"
     ( (0, "type_name"),
       [],
@@ -718,7 +718,7 @@ let main () =
               "ERROR: %d: Type-Check: not applied to type %s instead of Bool\n"
               exp.loc (type_to_str t1);
             exit 1);
-          Class "Int"
+          Class "Bool"
       | Negate e1 ->
           (* [Neg] *)
           let t1 = tc o m e1 in
@@ -753,6 +753,10 @@ let main () =
                        to %s\n"
                       vloc (type_to_str binit_type) typename;
                     exit 1)
+                  else (
+                    (* Add to global obj env *)
+                    printf "%s: %s %s\n" vname (type_to_str binit_type) typename;
+                    Hashtbl.add o vname (Class typename))
               (* [Let-No-Init] *)
               | None -> Hashtbl.add o vname (Class typename))
             bindlist;
@@ -907,12 +911,7 @@ let main () =
                 fprintf fout "no_initializer\n%s\n%s\n" aname atype
             | (aloc, aname), (_, atype), Some init ->
                 fprintf fout "initializer\n%s\n%s\n" aname atype;
-                (* THIS IS WRONG -- add features to object enviroment *)
-                let o = global_obj_env in
-                (* THIS IS WRONG -- add methods to method environment *)
-                let m = global_meth_env in
-
-                let init_type = tc o m init in
+                let init_type = tc global_obj_env global_meth_env init in
                 if not (is_subtype (type_to_str init_type) atype) then (
                   printf
                     "ERROR: %d: Type-Check: %s does not conform to %s in \

@@ -81,6 +81,10 @@ let is_subtype (x : name) (y : name) =
   match (x, y) with
   | x, y when x = y -> true (* same type *)
   | x, "Object" -> true (* subtype object *)
+  | x, y when x = "Void" && y = "Void" -> true
+  | x, y when x = "SELF_TYPE" && y = "SELF_TYPE" -> true
+  | x, y when x = "Void" && y = "SELF_TYPE" -> true
+  | x, y when x = "SELF_TYPE" && y = "Void" -> true
   | x, y ->
       let rec dfs_helper vert =
         (* checking inheritance map *)
@@ -922,24 +926,28 @@ let main () =
         fprintf fout "%d\n" (List.length methods);
         List.iter
           (fun meth ->
-            let (_, mname), mformals, _, _ = meth in
+            let (mloc, mname), mformals, (returnloc, returntype), mbody =
+              meth
+            in
             fprintf fout "%s\n%d\n" mname (List.length mformals);
+            (* Check body return type matches method type *)
+            let o = global_obj_env in
+            let m = global_meth_env in
+            let body_type = tc o m mbody in
+            (* TODO: This is erroring on comparing return types and body types of builtin methods *)
+            if not (is_subtype (type_to_str body_type) returntype) then (
+              printf
+                "ERROR: %d: Type-Check: %s does not conform to %s in method %s\n"
+                mloc (type_to_str body_type) returntype mname;
+              exit 1);
+            (* Print formals *)
             List.iter
               (fun ((_, fmname), _) ->
                 fprintf fout "%s\n" fmname;
-                fprintf fout "%s\n" cname;
+                fprintf fout "%s\n" cname
                 (* TODO: If this method is inherited but NOT OVERIDDEN 
               Output the name of the highest parent class that defined 
-              the method body expression, otherwise output current class *)
-                let dummy_exp =
-                  (* TODO: output actual method body expression *)
-                  {
-                    loc = 0;
-                    exp_kind = Integer 0;
-                    static_type = Some (Class "Int");
-                  }
-                in
-                output_exp dummy_exp)
+              the method body expression, otherwise output current class *))
               mformals)
           (List.rev methods))
       sorted_classes

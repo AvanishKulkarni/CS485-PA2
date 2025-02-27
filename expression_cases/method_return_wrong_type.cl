@@ -3,11 +3,10 @@ class Main inherits IO {
         0
     };
 
-    random(): Int { 0 };
-};
-
-class Silly inherits Main {
-    random(): Int {
-        false
+    random()
+    : 
+    Bool 
+    { 
+        0 
     };
 };

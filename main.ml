@@ -660,7 +660,9 @@ let main () =
               printf "weird bug in block\n";
               exit 1
           | Some t -> t)
-      | New i -> Class "void"
+      | New i -> (
+          let iloc, itype = i in
+          match itype with "SELF_TYPE" -> SELF_TYPE itype | _ -> Class itype)
       | Isvoid e ->
           (* [Isvoid] *)
           Class "Bool"

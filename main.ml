@@ -646,7 +646,17 @@ let main () =
           let thentype = tc o m e2 in
           let elsetype = tc o m e2 in
           least_upper_bound thentype elsetype
-      | While (e1, e2) -> Class "void"
+      | While (e1, e2) ->
+          (* [Loop] *)
+          let predtype = tc o m e1 in
+          if predtype <> Class "Bool" then (
+            printf
+              "ERROR: %d: Type-Check: predicate has type %s instead of Bool\n"
+              exp.loc (type_to_str predtype);
+            exit 1);
+          (* Type-check the body, do nothing with it *)
+          ignore (tc o m e2);
+          Class "Object"
       | Block elist -> (
           (* [Sequence] *)
           let tn = ref None in
@@ -661,6 +671,7 @@ let main () =
               exit 1
           | Some t -> t)
       | New i -> (
+          (* [New] *)
           let iloc, itype = i in
           match itype with "SELF_TYPE" -> SELF_TYPE itype | _ -> Class itype)
       | Isvoid e ->
@@ -720,6 +731,7 @@ let main () =
       | Integer c -> Class "Int"
       | String c -> Class "String"
       | Identifier (iloc, iname) ->
+          (* [Var] *)
           if Hashtbl.mem o iname then Hashtbl.find o iname
           else (
             printf "ERROR: %d: Type-Check: unbound identifier %s\n" iloc iname;

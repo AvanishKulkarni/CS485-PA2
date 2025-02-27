@@ -1,6 +1,6 @@
 class Main inherits IO {
 
-    x: Int <- false;
+    x: Bool <- not 1;
 
     main(): Int {
         0

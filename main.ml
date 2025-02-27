@@ -91,6 +91,9 @@ let is_subtype (x : name) (y : name) =
       in
       dfs_helper y
 
+(* TODO Implement *)
+let least_upper_bound (x : static_type) (y : static_type) = x
+
 let main () =
   (* De-serialize CL-AST file *)
   let args_array = Array.to_list Sys.argv in
@@ -626,16 +629,41 @@ let main () =
                attribute\n"
               typeloc (type_to_str exp_type) typename;
             exit 1);
-          Class "void"
+          Class (type_to_str exp_type)
       | Dynamic_Dispatch (e1, i, elist) -> Class "void"
       | Static_Dispatch (e1, i1, i2, elist) -> Class "void"
       | Self_Dispatch (i, elist) -> Class "void"
-      | If (e1, e2, e3) -> Class "void"
+      | If (e1, e2, e3) ->
+          (* [If] *)
+          let predtype = tc o m e1 in
+          if predtype <> Class "Bool" then (
+            printf
+              "ERROR: %d: Type-Check: Predicate has type %s instead of Bool\n"
+              e1.loc (type_to_str predtype);
+            exit 1);
+          let thentype = tc o m e2 in
+          let elsetype = tc o m e2 in
+          least_upper_bound thentype elsetype
       | While (e1, e2) -> Class "void"
-      | Block elist -> Class "void"
+      | Block elist -> (
+          (* [Sequence] *)
+          let tn = ref None in
+          List.iter
+            (fun exp ->
+              let t = tc o m exp in
+              tn := Some t)
+            elist;
+          match !tn with
+          | None ->
+              printf "weird bug in block\n";
+              exit 1
+          | Some t -> t)
       | New i -> Class "void"
-      | Isvoid e -> Class "void"
+      | Isvoid e ->
+          (* [Isvoid] *)
+          Class "Bool"
       | Plus (e1, e2) | Minus (e1, e2) | Times (e1, e2) | Divide (e1, e2) ->
+          (* [Arith] *)
           let t1 = tc o m e1 in
           let t2 = tc o m e2 in
           if t1 <> Class "Int" || t2 <> Class "Int" then (
@@ -644,11 +672,47 @@ let main () =
               exp.loc (type_to_str t1) (type_to_str t2);
             exit 1);
           Class "Int"
-      | Lt (e1, e2) -> Class "void"
-      | Le (e1, e2) -> Class "void"
-      | Eq (e1, e2) -> Class "void"
-      | Not e1 -> Class "void"
-      | Negate e1 -> Class "void"
+      | Lt (e1, e2) | Le (e1, e2) ->
+          (* [Compare] *)
+          let t1 = tc o m e1 in
+          let t2 = tc o m e2 in
+          if t1 <> Class "Int" || t2 <> Class "Int" then (
+            printf "ERROR: %d: Type-Check: comparison between %s and %s\n"
+              exp.loc (type_to_str t1) (type_to_str t2);
+            exit 1);
+          Class "Bool"
+      | Eq (e1, e2) ->
+          (* [Equal] *)
+          let t1 = tc o m e1 in
+          let t2 = tc o m e2 in
+          (match t1 with
+          | Class "Int" | Class "String" | Class "Bool" ->
+              if type_to_str t1 <> type_to_str t2 then (
+                printf "ERROR: %d: Type-Check: comparison between %s and %s\n"
+                  exp.loc (type_to_str t1) (type_to_str t2);
+                exit 1)
+          | _ ->
+              (* Do nothing, since non default objects can be equated freely *)
+              ());
+          Class "Bool"
+      | Not e1 ->
+          (* [Not] *)
+          let t1 = tc o m e1 in
+          if t1 <> Class "Bool" then (
+            printf
+              "ERROR: %d: Type-Check: not applied to type %s instead of Bool\n"
+              exp.loc (type_to_str t1);
+            exit 1);
+          Class "Int"
+      | Negate e1 ->
+          (* [Neg] *)
+          let t1 = tc o m e1 in
+          if t1 <> Class "Int" then (
+            printf
+              "ERROR: %d: Type-Check: negate applied to type %s instead of Int\n"
+              exp.loc (type_to_str t1);
+            exit 1);
+          Class "Int"
       | Integer c -> Class "Int"
       | String c -> Class "String"
       | Identifier (iloc, iname) ->
@@ -688,9 +752,7 @@ let main () =
             bindlist;
           body_type
       | Case (e1, caselist) -> Class "void"
-      | IOMethod c -> Class "void"
-      | ObjectMethod c -> Class "void"
-      | StringMethod c -> Class "void"
+      | IOMethod c | ObjectMethod c | StringMethod c -> Class "void"
     in
     (* write to type field *)
     exp.static_type <- Some static_type;

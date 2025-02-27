@@ -54,9 +54,7 @@ and exp_kind =
   | Bool of string (* bool *)
   | Let of binding list * exp
   | Case of exp * case_elem list
-  | IOMethod of string
-  | ObjectMethod of string
-  | StringMethod of string
+  | Object of string (* SELF_TYPE or another class *)
 
 and binding = Binding of id * cool_type * exp option
 and case_elem = Case_Elem of id * id * exp
@@ -311,54 +309,54 @@ let main () =
     ( (0, "abort"),
       [],
       (0, "Object"),
-      { loc = 0; exp_kind = ObjectMethod ""; static_type = None } );
+      { loc = 0; exp_kind = Object ""; static_type = None } );
   Hashtbl.add class_map_method "Object"
     ( (0, "type_name"),
       [],
       (0, "String"),
-      { loc = 0; exp_kind = ObjectMethod ""; static_type = None } );
+      { loc = 0; exp_kind = String ""; static_type = None } );
   Hashtbl.add class_map_method "Object"
     ( (0, "copy"),
       [],
       (0, "SELF_TYPE"),
-      { loc = 0; exp_kind = ObjectMethod ""; static_type = None } );
+      { loc = 0; exp_kind = Object "SELF_TYPE"; static_type = None } );
 
   Hashtbl.add class_map_method "IO"
     ( (0, "out_string"),
       [ ((0, "x"), (0, "String")) ],
       (0, "SELF_TYPE"),
-      { loc = 0; exp_kind = IOMethod ""; static_type = None } );
+      { loc = 0; exp_kind = Object "SELF_TYPE"; static_type = None } );
   Hashtbl.add class_map_method "IO"
     ( (0, "out_int"),
       [ ((0, "x"), (0, "Int")) ],
       (0, "SELF_TYPE"),
-      { loc = 0; exp_kind = IOMethod ""; static_type = None } );
+      { loc = 0; exp_kind = Object "SELF_TYPE"; static_type = None } );
   Hashtbl.add class_map_method "IO"
     ( (0, "in_string"),
       [],
       (0, "String"),
-      { loc = 0; exp_kind = IOMethod ""; static_type = None } );
+      { loc = 0; exp_kind = String ""; static_type = None } );
   Hashtbl.add class_map_method "IO"
     ( (0, "in_int"),
       [],
       (0, "Int"),
-      { loc = 0; exp_kind = IOMethod ""; static_type = None } );
+      { loc = 0; exp_kind = Integer 0; static_type = None } );
 
   Hashtbl.add class_map_method "String"
     ( (0, "length"),
       [],
       (0, "Int"),
-      { loc = 0; exp_kind = StringMethod ""; static_type = None } );
+      { loc = 0; exp_kind = Integer 0; static_type = None } );
   Hashtbl.add class_map_method "String"
     ( (0, "concat"),
       [ ((0, "s"), (0, "String")) ],
       (0, "String"),
-      { loc = 0; exp_kind = StringMethod ""; static_type = None } );
+      { loc = 0; exp_kind = String ""; static_type = None } );
   Hashtbl.add class_map_method "String"
     ( (0, "substr"),
       [ ((0, "i"), (0, "Int")); ((0, "l"), (0, "Int")) ],
       (0, "String"),
-      { loc = 0; exp_kind = StringMethod ""; static_type = None } );
+      { loc = 0; exp_kind = String ""; static_type = None } );
 
   (* 
         look for inheritance from Int 
@@ -756,7 +754,7 @@ let main () =
             bindlist;
           body_type
       | Case (e1, caselist) -> Class "void"
-      | IOMethod c | ObjectMethod c | StringMethod c -> Class "void"
+      | Object c -> Class c (* TODO: handle SELF_TYPE or specific objects *)
     in
     (* write to type field *)
     exp.static_type <- Some static_type;
@@ -873,9 +871,7 @@ let main () =
             fprintf fout "%d\n%s\n%d\n%s\n" cid cname ctid ctname;
             output_exp exp)
           elemlist
-    | StringMethod _ -> ()
-    | IOMethod _ -> ()
-    | ObjectMethod _ -> ()
+    | Object _ -> ()
   in
 
   let sorted_all_classes = List.sort compare all_classes in

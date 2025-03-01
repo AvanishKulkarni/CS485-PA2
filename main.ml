@@ -641,7 +641,39 @@ let main () =
       | Dynamic_Dispatch (e1, i, elist) -> Class "void"
       | Static_Dispatch (e1, i1, i2, elist) -> Class "void"
       | Self_Dispatch (i, elist) -> 
-        Class "void"
+        let mloc, mname = i in
+        (* Checks if the method exists *)
+        if not (Hashtbl.mem m (Class cname, mname)) then (
+          printf
+              "ERROR: %d: Type-Check: unknown method %s in dispatch on %s\n"
+              mloc mname cname;
+            exit 1
+        );
+        let meth = Hashtbl.find m (Class cname, mname) in (* first n-1 elements are formal types, n is return type*)
+        (* Checks if number of arguments matches with number of formals *)
+        if (List.length elist <> ((List.length meth -1))) then (
+          printf
+              "ERROR: %d: Type-Check: wrong number of actual arguments (%d vs. %d)\n"
+              mloc (List.length elist) (List.length meth -1);
+            exit 1
+        );
+        (* Type checks arguments to formals *)
+        List.iteri (fun ind exp ->
+          let exp_type = tc cname o m exp in
+          let formal_type = Class (List.nth meth ind) in
+          if (formal_type <> exp_type) then (
+            printf
+              "ERROR: %d: Type-Check: argument #%d type %s does not conform to formal type %s\n"
+              mloc (ind+1) (type_to_str exp_type) (type_to_str formal_type);
+            exit 1
+          );
+        ) elist;
+        let rtype = List.hd (List.rev meth) in
+        if (rtype = "SELF_TYPE") then (
+          Class cname
+        ) else (
+          Class rtype
+        )
       | If (e1, e2, e3) ->
           (* [If] *)
           let predtype = tc cname o m e1 in
@@ -951,6 +983,7 @@ let main () =
         fprintf fout "%s\n" cname;
         let methods = Hashtbl.find_all class_map_method cname in
         fprintf fout "%d\n" (List.length methods);
+        set_envs cname;
         List.iter
           (fun meth ->
             let (mloc, mname), mformals, (returnloc, returntype), mbody =
@@ -958,7 +991,9 @@ let main () =
             in
             fprintf fout "%s\n%d\n" mname (List.length mformals);
             (* Check body return type matches method type *)
-            set_envs cname;
+            List.iter ( fun ((_, fmname), (_, fmtype)) ->
+              Hashtbl.add global_obj_env fmname (Class fmtype);
+            ) mformals;
             let o = global_obj_env in
             let m = global_meth_env in
             let body_type = tc cname o m mbody in
@@ -972,7 +1007,8 @@ let main () =
             List.iter
               (fun ((_, fmname), _) ->
                 fprintf fout "%s\n" fmname;
-                fprintf fout "%s\n" cname
+                fprintf fout "%s\n" cname;
+                Hashtbl.remove global_obj_env fmname;
                 (* TODO: If this method is inherited but NOT OVERIDDEN 
               Output the name of the highest parent class that defined 
               the method body expression, otherwise output current class *))

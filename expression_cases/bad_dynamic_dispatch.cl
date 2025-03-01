@@ -5,9 +5,7 @@ class A {
 };
 
 class B {
-    out_string(): String {
-        "Class B\n"
-    };
+
 };
 
 class C inherits B {

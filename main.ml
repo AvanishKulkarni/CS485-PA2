@@ -640,12 +640,7 @@ let main () =
           Class (type_to_str exp_type)
       | Dynamic_Dispatch (e1, i, elist) -> 
         let class_type = tc cname o m e1 in
-        printf "%s\n" (type_to_str class_type);
         let mloc, mname = i in
-        (* printf "Current Class: %s, Method: %s\n" (type_to_str class_type) mname;
-        Hashtbl.iter (fun (stype, mname) _ ->
-          printf "Class: %s, Method: %s\n" (type_to_str stype) mname;
-        ) global_meth_env; *)
         (* Checks if the method exists *)
         if not (Hashtbl.mem m (class_type, mname)) then (
           printf
@@ -678,7 +673,48 @@ let main () =
         ) else (
           Class rtype
         )
-      | Static_Dispatch (e1, i1, i2, elist) -> Class "void"
+      | Static_Dispatch (e1, (_,static_class), i2, elist) -> 
+        let calling_class = tc cname o m e1 in
+        if not (is_subtype (type_to_str calling_class) static_class) then (
+          printf
+              "ERROR: %d: Type-Check: %s does not conform to %s in static dispatch\n"
+              exp.loc (type_to_str calling_class) static_class;
+          exit 1
+        );
+        let class_type = Class static_class in
+        let mloc, mname = i2 in
+        (* Checks if the method exists *)
+        if not (Hashtbl.mem m (class_type, mname)) then (
+          printf
+              "ERROR: %d: Type-Check: unknown method %s in dispatch on %s\n"
+              mloc mname (type_to_str class_type);
+            exit 1
+        );
+        let meth = Hashtbl.find m (class_type, mname) in (* first n-1 elements are formal types, n is return type*)
+        (* Checks if number of arguments matches with number of formals *)
+        if (List.length elist <> ((List.length meth -1))) then (
+          printf
+              "ERROR: %d: Type-Check: wrong number of actual arguments (%d vs. %d)\n"
+              mloc (List.length elist) (List.length meth -1);
+            exit 1
+        );
+        (* Type checks arguments to formals *)
+        List.iteri (fun ind exp ->
+          let exp_type = tc cname o m exp in
+          let formal_type = Class (List.nth meth ind) in
+          if (formal_type <> exp_type) then (
+            printf
+              "ERROR: %d: Type-Check: argument #%d type %s does not conform to formal type %s\n"
+              mloc (ind+1) (type_to_str exp_type) (type_to_str formal_type);
+            exit 1
+          );
+        ) elist;
+        let rtype = List.hd (List.rev meth) in
+        if (rtype = "SELF_TYPE") then (
+          calling_class
+        ) else (
+          Class rtype
+        )
       | Self_Dispatch (i, elist) -> 
         let mloc, mname = i in
         (* Checks if the method exists *)

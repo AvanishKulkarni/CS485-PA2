@@ -756,13 +756,13 @@ let main () =
                   let binit_type = tc o m binit in
                   if not (is_subtype (type_to_str binit_type) typename) then (
                     printf
-                      "ERROR: %d: Type-Check: initializer %s does not conform \
-                       to %s\n"
-                      vloc (type_to_str binit_type) typename;
+                      "ERROR: %d: Type-Check: initializer type %s does not conform \
+                       to type %s\n"
+                      exp.loc (type_to_str binit_type) typename;
                     exit 1)
                   else (
                     (* Add to global obj env *)
-                    printf "%s: %s %s\n" vname (type_to_str binit_type) typename;
+                    (* printf "%s: %s %s\n" vname (type_to_str binit_type) typename; *)
                     Hashtbl.add o vname (Class typename))
               (* [Let-No-Init] *)
               | None -> Hashtbl.add o vname (Class typename))
@@ -773,9 +773,7 @@ let main () =
           (* Remove all variables in the letexpr from the scope *)
           List.iter
             (fun (Binding ((vloc, vname), (typeloc, typenam), binit)) ->
-              match binit with
-              | Some binit -> ()
-              | None -> Hashtbl.remove o vname)
+              Hashtbl.remove o vname)
             bindlist;
           body_type
       | Case (e1, caselist) -> Class "void"

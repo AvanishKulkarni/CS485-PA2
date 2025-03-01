@@ -93,8 +93,33 @@ let is_subtype (x : name) (y : name) =
       in
       dfs_helper y
 
+let find_parent cname inheritance =
+  Hashtbl.fold
+    (fun parent v acc -> if v = cname then Some parent else acc)
+    inheritance None
+
 (* TODO Implement *)
-let least_upper_bound (x : static_type) (y : static_type) = x
+let least_upper_bound (x : static_type) (y : static_type) =
+  let xname = type_to_str x in
+  let yname = type_to_str y in
+  let rec goto_root (node : string) =
+    match find_parent node inheritance with
+    | None -> [ node ]
+    | Some parent -> node :: goto_root parent
+  in
+
+  let path_x = List.rev (goto_root xname) in
+  let path_y = List.rev (goto_root yname) in
+
+  (* start at root, go down until divergence *)
+  let rec find_common px py =
+    match (px, py) with
+    | hx :: tx, hy :: ty when hx = hy -> hx :: find_common tx ty
+    | _ -> []
+  in
+  match find_common path_x path_y with
+  | [] -> failwith "lub failure (BUG!!!)"
+  | hd :: tl -> Class hd
 
 let main () =
   (* De-serialize CL-AST file *)
@@ -1111,12 +1136,6 @@ let main () =
               mformals)
           (List.rev methods))
       sorted_classes
-  in
-
-  let find_parent cname inheritance =
-    Hashtbl.fold
-      (fun parent v acc -> if v = cname then Some parent else acc)
-      inheritance None
   in
 
   let print_parent_map fout (sorted_classes : name list) inheritance =

@@ -29,10 +29,10 @@ function run_tests() {
         diff -b -B -w reference_error.txt test_error.txt > /dev/null
     fi
     if [ $? -eq 0 ]; then
-        echo "Passed $1"
+        echo -e "\e[32;1mPassed\e[0m $1"
         return 0
     else 
-        echo "Failed $1"
+        echo -e "\e[31;1mFailed\e[0m $1"
         return 1
     fi
 }

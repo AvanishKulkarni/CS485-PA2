@@ -69,7 +69,7 @@ let class_map_method : (name, id * formal list * cool_type * exp) Hashtbl.t =
 
 (*defined this way so we can make arbitrary new object_envs *)
 type obj_env = (name, static_type) Hashtbl.t
-type meth_env = (cool_class * feature, formal list) Hashtbl.t
+type meth_env = (static_type * name, name list) Hashtbl.t
 
 let global_obj_env : obj_env = Hashtbl.create 255
 let global_meth_env : meth_env = Hashtbl.create 255
@@ -900,7 +900,18 @@ let main () =
   in
 
   let sorted_all_classes = List.sort compare all_classes in
-
+  let set_envs cname = 
+      Hashtbl.clear global_obj_env;
+      Hashtbl.clear global_meth_env;
+      List.iter ( fun ((_, aname), (_, atype), _) ->
+        Hashtbl.add global_obj_env aname (Class atype);
+      ) (Hashtbl.find_all class_map_attr cname);
+      List.iter ( fun ((_,mname), formals, (_,rtype), _) ->
+        let newFormals = List.map (fun (_, (_, ftype)) -> ftype) formals in
+        let newFormals = newFormals @ [rtype] in
+        Hashtbl.add global_meth_env (Class cname, mname) newFormals;
+      ) (Hashtbl.find_all class_map_method cname);
+  in
   (* Function to print class map *)
   let print_class_map fout (sorted_classes : name list) class_map_attr
       output_exp =
@@ -918,6 +929,7 @@ let main () =
                 fprintf fout "no_initializer\n%s\n%s\n" aname atype
             | (aloc, aname), (_, atype), Some init ->
                 fprintf fout "initializer\n%s\n%s\n" aname atype;
+                set_envs cname;
                 let init_type = tc global_obj_env global_meth_env init in
                 if not (is_subtype (type_to_str init_type) atype) then (
                   printf
@@ -947,6 +959,7 @@ let main () =
             in
             fprintf fout "%s\n%d\n" mname (List.length mformals);
             (* Check body return type matches method type *)
+            set_envs cname;
             let o = global_obj_env in
             let m = global_meth_env in
             let body_type = tc o m mbody in

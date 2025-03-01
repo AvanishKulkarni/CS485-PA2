@@ -57,7 +57,7 @@ and exp_kind =
   | Object of string (* SELF_TYPE or another class *)
 
 and binding = Binding of id * cool_type * exp option
-and case_elem = Case_Elem of id * id * exp
+and case_elem = Case_Elem of id * cool_type * exp
 
 let inheritance : (name, name) Hashtbl.t = Hashtbl.create 255
 
@@ -755,7 +755,7 @@ let main () =
           let predtype = tc cname o m e1 in
           if predtype <> Class "Bool" then (
             printf
-              "ERROR: %d: Type-Check: Predicate has type %s instead of Bool\n"
+              "ERROR: %d: Type-Check: conditional has type %s instead of Bool\n"
               e1.loc (type_to_str predtype);
             exit 1);
           let thentype = tc cname o m e2 in
@@ -885,7 +885,19 @@ let main () =
               Hashtbl.remove o vname)
             bindlist;
           body_type
-      | Case (e1, caselist) -> Class "void"
+      | Case (e1, caselist) -> 
+        let caseType = tc cname o m e1 in
+        let resultType = ref (Class "Object") in
+        let seenTypes = ref SeenSet.empty in
+        List.iter (fun ((loc, name), (tloc, tname), exp) ->
+          if (SeenSet.mem tname !seenTypes) then (
+            ()
+          );
+          Hashtbl.add o name (Class tname);
+          resultType := least_upper_bound !resultType (tc cname o m exp);
+          Hashtbl.remove o name;
+        ) caselist;
+        Class "void"
       | Object c -> Class c (* TODO: handle SELF_TYPE or specific objects *)
     in
     (* write to type field *)

@@ -624,13 +624,13 @@ let main () =
         exit 1
     );
   in
-  let rec tc (o : obj_env) (m : meth_env) (exp : exp) : static_type =
+  let rec tc (cname: name) (o : obj_env) (m : meth_env) (exp : exp) : static_type =
     let static_type =
       match exp.exp_kind with
       | Assign (i, e1) ->
           (* [ASSIGN] *)
           let typeloc, typename = i in
-          let exp_type = tc o m e1 in
+          let exp_type = tc cname o m e1 in
           if not (is_subtype (type_to_str exp_type) typename) then (
             printf
               "ERROR: %d: Type-Check: %s does not conform to %s in initialized \
@@ -640,35 +640,36 @@ let main () =
           Class (type_to_str exp_type)
       | Dynamic_Dispatch (e1, i, elist) -> Class "void"
       | Static_Dispatch (e1, i1, i2, elist) -> Class "void"
-      | Self_Dispatch (i, elist) -> Class "void"
+      | Self_Dispatch (i, elist) -> 
+        Class "void"
       | If (e1, e2, e3) ->
           (* [If] *)
-          let predtype = tc o m e1 in
+          let predtype = tc cname o m e1 in
           if predtype <> Class "Bool" then (
             printf
               "ERROR: %d: Type-Check: Predicate has type %s instead of Bool\n"
               e1.loc (type_to_str predtype);
             exit 1);
-          let thentype = tc o m e2 in
-          let elsetype = tc o m e2 in
+          let thentype = tc cname o m e2 in
+          let elsetype = tc cname o m e3 in
           least_upper_bound thentype elsetype
       | While (e1, e2) ->
           (* [Loop] *)
-          let predtype = tc o m e1 in
+          let predtype = tc cname o m e1 in
           if predtype <> Class "Bool" then (
             printf
               "ERROR: %d: Type-Check: predicate has type %s instead of Bool\n"
               exp.loc (type_to_str predtype);
             exit 1);
           (* Type-check the body, do nothing with it *)
-          ignore (tc o m e2);
+          ignore (tc cname o m e2);
           Class "Object"
       | Block elist -> (
           (* [Sequence] *)
           let tn = ref None in
           List.iter
             (fun exp ->
-              let t = tc o m exp in
+              let t = tc cname o m exp in
               tn := Some t)
             elist;
           match !tn with
@@ -686,8 +687,8 @@ let main () =
           Class "Bool"
       | Plus (e1, e2) | Minus (e1, e2) | Times (e1, e2) | Divide (e1, e2) ->
           (* [Arith] *)
-          let t1 = tc o m e1 in
-          let t2 = tc o m e2 in
+          let t1 = tc cname o m e1 in
+          let t2 = tc cname o m e2 in
           if t1 <> Class "Int" || t2 <> Class "Int" then (
             printf
               "ERROR: %d: Type-Check: arithmetic on %s %s instead of Ints\n"
@@ -696,8 +697,8 @@ let main () =
           Class "Int"
       | Lt (e1, e2) | Le (e1, e2) ->
           (* [Compare] *)
-          let t1 = tc o m e1 in
-          let t2 = tc o m e2 in
+          let t1 = tc cname o m e1 in
+          let t2 = tc cname o m e2 in
           if t1 <> Class "Int" || t2 <> Class "Int" then (
             printf "ERROR: %d: Type-Check: comparison between %s and %s\n"
               exp.loc (type_to_str t1) (type_to_str t2);
@@ -705,8 +706,8 @@ let main () =
           Class "Bool"
       | Eq (e1, e2) ->
           (* [Equal] *)
-          let t1 = tc o m e1 in
-          let t2 = tc o m e2 in
+          let t1 = tc cname o m e1 in
+          let t2 = tc cname o m e2 in
           (match t1 with
           | Class "Int" | Class "String" | Class "Bool" ->
               if type_to_str t1 <> type_to_str t2 then (
@@ -719,7 +720,7 @@ let main () =
           Class "Bool"
       | Not e1 ->
           (* [Not] *)
-          let t1 = tc o m e1 in
+          let t1 = tc cname o m e1 in
           if t1 <> Class "Bool" then (
             printf
               "ERROR: %d: Type-Check: not applied to type %s instead of Bool\n"
@@ -728,7 +729,7 @@ let main () =
           Class "Bool"
       | Negate e1 ->
           (* [Neg] *)
-          let t1 = tc o m e1 in
+          let t1 = tc cname o m e1 in
           if t1 <> Class "Int" then (
             printf
               "ERROR: %d: Type-Check: negate applied to type %s instead of Int\n"
@@ -753,7 +754,7 @@ let main () =
               match binit with
               (* [Let-Init] *)
               | Some binit ->
-                  let binit_type = tc o m binit in
+                  let binit_type = tc cname o m binit in
                   if not (is_subtype (type_to_str binit_type) typename) then (
                     printf
                       "ERROR: %d: Type-Check: initializer type %s does not conform \
@@ -768,7 +769,7 @@ let main () =
               | None -> Hashtbl.add o vname (Class typename))
             bindlist;
           (* Typecheck let_body with newly bound variables *)
-          let body_type = tc o m let_body in
+          let body_type = tc cname o m let_body in
 
           (* Remove all variables in the letexpr from the scope *)
           List.iter
@@ -928,7 +929,7 @@ let main () =
             | (aloc, aname), (_, atype), Some init ->
                 fprintf fout "initializer\n%s\n%s\n" aname atype;
                 set_envs cname;
-                let init_type = tc global_obj_env global_meth_env init in
+                let init_type = tc cname global_obj_env global_meth_env init in
                 if not (is_subtype (type_to_str init_type) atype) then (
                   printf
                     "ERROR: %d: Type-Check: %s does not conform to %s in \
@@ -960,7 +961,7 @@ let main () =
             set_envs cname;
             let o = global_obj_env in
             let m = global_meth_env in
-            let body_type = tc o m mbody in
+            let body_type = tc cname o m mbody in
             (* TODO: This is erroring on comparing return types and body types of builtin methods *)
             if not (is_subtype (type_to_str body_type) returntype) then (
               printf

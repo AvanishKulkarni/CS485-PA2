@@ -638,7 +638,46 @@ let main () =
               typeloc (type_to_str exp_type) typename;
             exit 1);
           Class (type_to_str exp_type)
-      | Dynamic_Dispatch (e1, i, elist) -> Class "void"
+      | Dynamic_Dispatch (e1, i, elist) -> 
+        let class_type = tc cname o m e1 in
+        printf "%s\n" (type_to_str class_type);
+        let mloc, mname = i in
+        (* printf "Current Class: %s, Method: %s\n" (type_to_str class_type) mname;
+        Hashtbl.iter (fun (stype, mname) _ ->
+          printf "Class: %s, Method: %s\n" (type_to_str stype) mname;
+        ) global_meth_env; *)
+        (* Checks if the method exists *)
+        if not (Hashtbl.mem m (class_type, mname)) then (
+          printf
+              "ERROR: %d: Type-Check: unknown method %s in dispatch on %s\n"
+              mloc mname (type_to_str class_type);
+            exit 1
+        );
+        let meth = Hashtbl.find m (class_type, mname) in (* first n-1 elements are formal types, n is return type*)
+        (* Checks if number of arguments matches with number of formals *)
+        if (List.length elist <> ((List.length meth -1))) then (
+          printf
+              "ERROR: %d: Type-Check: wrong number of actual arguments (%d vs. %d)\n"
+              mloc (List.length elist) (List.length meth -1);
+            exit 1
+        );
+        (* Type checks arguments to formals *)
+        List.iteri (fun ind exp ->
+          let exp_type = tc cname o m exp in
+          let formal_type = Class (List.nth meth ind) in
+          if (formal_type <> exp_type) then (
+            printf
+              "ERROR: %d: Type-Check: argument #%d type %s does not conform to formal type %s\n"
+              mloc (ind+1) (type_to_str exp_type) (type_to_str formal_type);
+            exit 1
+          );
+        ) elist;
+        let rtype = List.hd (List.rev meth) in
+        if (rtype = "SELF_TYPE") then (
+          class_type
+        ) else (
+          Class rtype
+        )
       | Static_Dispatch (e1, i1, i2, elist) -> Class "void"
       | Self_Dispatch (i, elist) -> 
         let mloc, mname = i in
@@ -933,14 +972,15 @@ let main () =
   let sorted_all_classes = List.sort compare all_classes in
   let set_envs cname = 
       Hashtbl.clear global_obj_env;
-      Hashtbl.clear global_meth_env;
       List.iter ( fun ((_, aname), (_, atype), _) ->
         Hashtbl.add global_obj_env aname (Class atype);
       ) (Hashtbl.find_all class_map_attr cname);
       List.iter ( fun ((_,mname), formals, (_,rtype), _) ->
         let newFormals = List.map (fun (_, (_, ftype)) -> ftype) formals in
         let newFormals = newFormals @ [rtype] in
-        Hashtbl.add global_meth_env (Class cname, mname) newFormals;
+        if not (Hashtbl.mem global_meth_env (Class cname, mname)) then (
+          Hashtbl.add global_meth_env (Class cname, mname) newFormals;
+        );
       ) (Hashtbl.find_all class_map_method cname);
   in
   (* Function to print class map *)
@@ -953,6 +993,7 @@ let main () =
         fprintf fout "%s\n" cname;
         let attributes = Hashtbl.find_all class_map_attr cname in
         fprintf fout "%d\n" (List.length attributes);
+        set_envs cname;
         List.iter
           (fun attr ->
             match attr with
@@ -960,7 +1001,6 @@ let main () =
                 fprintf fout "no_initializer\n%s\n%s\n" aname atype
             | (aloc, aname), (_, atype), Some init ->
                 fprintf fout "initializer\n%s\n%s\n" aname atype;
-                set_envs cname;
                 let init_type = tc cname global_obj_env global_meth_env init in
                 if not (is_subtype (type_to_str init_type) atype) then (
                   printf

@@ -6,6 +6,8 @@ goodCount=0
 badCount=0
 goodTotal=0
 badTotal=0
+expCount=0
+expTotal=0
 function run_tests() {
     rm -f *.cl-ast
     rm -f *.cl-type
@@ -13,6 +15,8 @@ function run_tests() {
     rm -f good/*.cl-type
     rm -f bad/*.cl-ast
     rm -f bad/*.cl-type
+    rm -f expression_cases/*.cl-ast
+    rm -f expression_cases/*.cl-type
     rm -f reference_error.txt
     rm -f test_error.txt
     cool --parse "$1"
@@ -37,6 +41,8 @@ rm -f good/*.cl-ast
 rm -f good/*.cl-type
 rm -f bad/*.cl-ast
 rm -f bad/*.cl-type
+rm -f expression_cases/*.cl-ast
+rm -f expression_cases/*.cl-type
 
 if [ -n "$1" ]; then 
     run_tests $1
@@ -62,9 +68,17 @@ else
         badTotal=$((badTotal + 1))
         echo ""
     done
+    for file in expression_cases/*; do
+        if run_tests $file; then
+            expCount=$((expCount + 1))
+        fi
+        expTotal=$((expTotal + 1))
+        echo ""
+    done
     echo "Passed $goodCount/$goodTotal good test cases"
     echo "Passed $badCount/$badTotal bad test cases"
-    count=$((goodCount + badCount))
-    total=$((goodTotal + badTotal))
+    echo "Passed $expCount/$expTotal exp test cases"
+    count=$((goodCount + badCount + expCount))
+    total=$((goodTotal + badTotal + expTotal))
     echo "Passed $count/$total test cases"
 fi

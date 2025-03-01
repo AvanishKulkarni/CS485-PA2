@@ -629,13 +629,14 @@ let main () =
       match exp.exp_kind with
       | Assign (i, e1) ->
           (* [ASSIGN] *)
-          let typeloc, typename = i in
+          let aloc, aname = i in
+          let atype = Hashtbl.find o aname in
           let exp_type = tc cname o m e1 in
-          if not (is_subtype (type_to_str exp_type) typename) then (
+          if not (is_subtype (type_to_str exp_type) (type_to_str atype)) then (
             printf
               "ERROR: %d: Type-Check: %s does not conform to %s in initialized \
                attribute\n"
-              typeloc (type_to_str exp_type) typename;
+               aloc (type_to_str exp_type) (type_to_str atype);
             exit 1);
           Class (type_to_str exp_type)
       | Dynamic_Dispatch (e1, i, elist) -> 

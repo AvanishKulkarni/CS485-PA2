@@ -616,8 +616,14 @@ let main () =
 
   (* Class Error checking complete *)
 
-  (* Begin Expression type-checking *)
-
+  (* Begin Expression type-checking *) 
+  let check_class_exists loc name = 
+    if not (List.mem name all_classes) then (
+      printf
+        "ERROR: %d: Type-Check: unknown type %s\n" loc name;
+        exit 1
+    );
+  in
   let rec tc (o : obj_env) (m : meth_env) (exp : exp) : static_type =
     let static_type =
       match exp.exp_kind with
@@ -673,6 +679,7 @@ let main () =
       | New i -> (
           (* [New] *)
           let iloc, itype = i in
+          check_class_exists iloc itype;
           match itype with "SELF_TYPE" -> SELF_TYPE itype | _ -> Class itype)
       | Isvoid e ->
           (* [Isvoid] *)

@@ -633,7 +633,7 @@ let main () =
           let atype = Hashtbl.find o aname in
           let exp_type = tc cname o m e1 in
           if not (is_subtype (type_to_str exp_type) (type_to_str atype)) then (
-            printf
+            printf  
               "ERROR: %d: Type-Check: %s does not conform to %s in initialized \
                attribute\n"
                aloc (type_to_str exp_type) (type_to_str atype);
@@ -1012,6 +1012,7 @@ let main () =
       List.iter ( fun ((_, aname), (_, atype), _) ->
         Hashtbl.add global_obj_env aname (Class atype);
       ) (Hashtbl.find_all class_map_attr cname);
+      Hashtbl.add global_obj_env "self" (Class cname);
       List.iter ( fun ((_,mname), formals, (_,rtype), _) ->
         let newFormals = List.map (fun (_, (_, ftype)) -> ftype) formals in
         let newFormals = newFormals @ [rtype] in
@@ -1040,11 +1041,19 @@ let main () =
                 fprintf fout "initializer\n%s\n%s\n" aname atype;
                 let init_type = tc cname global_obj_env global_meth_env init in
                 if not (is_subtype (type_to_str init_type) atype) then (
-                  printf
-                    "ERROR: %d: Type-Check: %s does not conform to %s in \
+                  if (atype = "SELF_TYPE") then (
+                    printf
+                    "ERROR: %d: Type-Check: %s does not conform to SELF_TYPE(%s) in \
                      initialized attribute\n"
-                    aloc (type_to_str init_type) atype;
-                  exit 1);
+                    aloc (type_to_str init_type) cname;
+                    exit 1
+                  ) else (
+                    printf
+                      "ERROR: %d: Type-Check: %s does not conform to %s in \
+                      initialized attribute\n"
+                      aloc (type_to_str init_type) atype;
+                    exit 1
+                  ));
                 output_exp init)
           (List.rev attributes)
         (* Attributes are stored in reverse order due to how insertion into hash tables work*))

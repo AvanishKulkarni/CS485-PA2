@@ -481,7 +481,7 @@ let main () =
                   Hashtbl.add class_map_method cname
                     (mid, formal_list, mtype, mexp, cname))
               (* method name, formal list, return type, method expression, and source class *)
-            lst);
+            (List.rev lst));
       match inherits with
       | None -> Hashtbl.add inheritance "Object" cname
       (* inherits from Object by default *)
@@ -549,7 +549,7 @@ let main () =
               loc cname name;
             exit 1);
           attr_seen := SeenSet.add name !attr_seen)
-        (List.rev attr_list);
+        (attr_list);
       let meth_list = Hashtbl.find_all class_map_method cname in
       let meth_seen = ref SeenSet.empty in
 
@@ -574,7 +574,7 @@ let main () =
                 formal_seen := SeenSet.add pname !formal_seen)
               formal_list;
             meth_seen := SeenSet.add mname !meth_seen)
-        (List.rev meth_list))
+        (meth_list))
     all_classes;
 
   (* Type Checking features *)
@@ -604,7 +604,7 @@ let main () =
           printf "ERROR: %d: Type-Check: class %s redefines attribute %s\n" aloc
             cname name;
           exit 1))
-      (List.rev attributes);
+      (attributes);
     List.iter
       (fun ((mloc, mname), formal_list, (typeloc, mtype), _, _) ->
         (* Checks each formal parameter to see if the type exists *)
@@ -695,10 +695,10 @@ let main () =
     List.iter (fun _ -> Hashtbl.remove class_map_attr cname) attributes;
     List.iter
       (fun attr -> Hashtbl.add class_map_attr cname attr)
-      (List.rev inherited_attributes);
+      (attributes);
     List.iter
       (fun attr -> Hashtbl.add class_map_attr cname attr)
-      (List.rev attributes);
+      (inherited_attributes);
     let child_classes = Hashtbl.find_all inheritance cname in
     List.iter (fun cl -> feature_check cname cl) child_classes
   in
@@ -1239,6 +1239,7 @@ let main () =
               meth
             in
             (* Check body return type matches method type *)
+            (* printf "%s " mname; *)
             List.iter
               (fun ((_, fmname), (_, fmtype)) ->
                 Hashtbl.add global_obj_env fmname (Class fmtype))

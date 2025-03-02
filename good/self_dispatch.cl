@@ -6,6 +6,6 @@ class Main inherits IO {
 
     x: Int <- print();
     main() : Object {
-        1
+        3
     };
 };

@@ -64,7 +64,8 @@ let inheritance : (name, name) Hashtbl.t = Hashtbl.create 255
 let class_map_attr : (name, id * cool_type * exp option) Hashtbl.t =
   Hashtbl.create 255
 
-let class_map_method : (name, id * formal list * cool_type * exp * name) Hashtbl.t =
+let class_map_method :
+    (name, id * formal list * cool_type * exp * name) Hashtbl.t =
   Hashtbl.create 255
 
 (*defined this way so we can make arbitrary new object_envs *)
@@ -78,7 +79,7 @@ let global_meth_env : meth_env = Hashtbl.create 255
 let is_subtype (x : name) (y : name) =
   match (x, y) with
   | x, y when x = y -> true (* same type *)
-  | x, "Object" -> true (* subtype object *)
+  | x, "Object" -> true (* subtype of object *)
   | x, y when x = "Void" && y = "Void" -> true
   | x, y when x = "SELF_TYPE" && y = "SELF_TYPE" -> true
   | x, y when x = "Void" && y = "SELF_TYPE" -> true
@@ -98,7 +99,6 @@ let find_parent cname inheritance =
     (fun parent v acc -> if v = cname then Some parent else acc)
     inheritance None
 
-(* TODO Implement *)
 let least_upper_bound (x : static_type) (y : static_type) =
   match (x, y) with
   | Class "Object", _ -> Class "Object"
@@ -344,63 +344,63 @@ let main () =
       [],
       (0, "String"),
       { loc = 0; exp_kind = String ""; static_type = None },
-      "Object");
+      "Object" );
   Hashtbl.add class_map_method "Object"
     ( (0, "copy"),
       [],
       (0, "SELF_TYPE"),
       { loc = 0; exp_kind = Object "SELF_TYPE"; static_type = None },
-      "Object");
+      "Object" );
   Hashtbl.add class_map_method "Object"
-  ( (0, "abort"),
-    [],
-    (0, "Object"),
-    { loc = 0; exp_kind = Object "Object"; static_type = None },
-    "Object");
+    ( (0, "abort"),
+      [],
+      (0, "Object"),
+      { loc = 0; exp_kind = Object "Object"; static_type = None },
+      "Object" );
 
   Hashtbl.add class_map_method "IO"
     ( (0, "out_string"),
       [ ((0, "x"), (0, "String")) ],
       (0, "SELF_TYPE"),
       { loc = 0; exp_kind = Object "SELF_TYPE"; static_type = None },
-      "IO");
+      "IO" );
   Hashtbl.add class_map_method "IO"
     ( (0, "out_int"),
       [ ((0, "x"), (0, "Int")) ],
       (0, "SELF_TYPE"),
       { loc = 0; exp_kind = Object "SELF_TYPE"; static_type = None },
-      "IO");
+      "IO" );
   Hashtbl.add class_map_method "IO"
     ( (0, "in_string"),
       [],
       (0, "String"),
       { loc = 0; exp_kind = String ""; static_type = None },
-      "IO");
+      "IO" );
   Hashtbl.add class_map_method "IO"
     ( (0, "in_int"),
       [],
       (0, "Int"),
       { loc = 0; exp_kind = Integer 0; static_type = None },
-      "IO");
+      "IO" );
 
   Hashtbl.add class_map_method "String"
     ( (0, "substr"),
       [ ((0, "i"), (0, "Int")); ((0, "l"), (0, "Int")) ],
       (0, "String"),
       { loc = 0; exp_kind = String ""; static_type = None },
-      "String");
+      "String" );
   Hashtbl.add class_map_method "String"
     ( (0, "length"),
       [],
       (0, "Int"),
       { loc = 0; exp_kind = Integer 0; static_type = None },
-      "String");
+      "String" );
   Hashtbl.add class_map_method "String"
     ( (0, "concat"),
       [ ((0, "s"), (0, "String")) ],
       (0, "String"),
       { loc = 0; exp_kind = String ""; static_type = None },
-      "String");
+      "String" );
 
   (* 
         look for inheritance from Int 
@@ -436,7 +436,8 @@ let main () =
                   Hashtbl.add class_map_attr cname (aid, atype, None)
               | Method (mid, formal_list, mtype, mexp) ->
                   Hashtbl.add class_map_method cname
-                    (mid, formal_list, mtype, mexp, cname)) (* method name, formal list, return type, method expression, and source class *)
+                    (mid, formal_list, mtype, mexp, cname))
+              (* method name, formal list, return type, method expression, and source class *)
             lst);
       match inherits with
       | None -> Hashtbl.add inheritance "Object" cname
@@ -621,14 +622,17 @@ let main () =
       methods;
     (* If no errors are found, then add inherited features to the class map*)
     List.iter (fun _ -> Hashtbl.remove class_map_method cname) methods;
-    List.iter (fun meth -> Hashtbl.add class_map_method cname meth) (List.rev methods);
     List.iter
-      (fun meth -> 
-        let (_, mname), _,_,_,_ = meth in
-        if not (List.mem mname (List.map (fun ((_,name),_,_,_,_ ) -> name) methods)) then (
-          Hashtbl.add class_map_method cname meth;
-        );
-        )
+      (fun meth -> Hashtbl.add class_map_method cname meth)
+      (List.rev methods);
+    List.iter
+      (fun meth ->
+        let (_, mname), _, _, _, _ = meth in
+        if
+          not
+            (List.mem mname
+               (List.map (fun ((_, name), _, _, _, _) -> name) methods))
+        then Hashtbl.add class_map_method cname meth)
       (List.rev inherited_methods);
     List.iter (fun _ -> Hashtbl.remove class_map_attr cname) attributes;
     List.iter
@@ -647,7 +651,9 @@ let main () =
   (* BLOCK 2 END *)
   (* Check for main() method in Main or inherited classes*)
   let main_methods = Hashtbl.find_all class_map_method "Main" in
-  let method_names = List.map (fun ((_, name), _, _, _, _) -> name) main_methods in
+  let method_names =
+    List.map (fun ((_, name), _, _, _, _) -> name) main_methods
+  in
   if not (List.mem "main" method_names) then (
     printf "ERROR: 0: Type-Check: class Main method main not found\n";
     exit 1);
@@ -953,7 +959,8 @@ let main () =
                     exit 1);
                   if name = "self" then (
                     printf
-                      "ERROR: %d: Type-Check: binding %s in a case expression is not allowed\n"
+                      "ERROR: %d: Type-Check: binding %s in a case expression \
+                       is not allowed\n"
                       loc name;
                     exit 1);
                   let branchType = tc cname o m exp in
@@ -1157,7 +1164,11 @@ let main () =
         set_envs cname;
         List.iter
           (fun meth ->
-            let (mloc, mname), mformals, (returnloc, returntype), mbody, src_class =
+            let ( (mloc, mname),
+                  mformals,
+                  (returnloc, returntype),
+                  mbody,
+                  src_class ) =
               meth
             in
             (* printf "%s (%s). " mname src_class; *)
@@ -1181,14 +1192,16 @@ let main () =
               (fun ((_, fmname), _) ->
                 fprintf fout "%s\n" fmname;
                 fprintf fout "%s\n" cname;
-                Hashtbl.remove global_obj_env fmname
-                (* TODO: If this method is inherited but NOT OVERIDDEN 
+                Hashtbl.remove global_obj_env fmname)
+              mformals;
+            (* If this method is inherited but NOT OVERIDDEN 
               Output the name of the highest parent class that defined 
-              the method body expression, otherwise output current class *))
-              mformals)
-          (methods)
-          (* printf "\n"; *)
-          )
+              the method body expression, otherwise output current class *)
+            let _, _, _, _, most_recent_def = meth in
+            fprintf fout "%s\n" most_recent_def;
+            output_exp mbody)
+          methods
+        (* printf "\n"; *))
       sorted_classes
   in
 

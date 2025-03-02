@@ -103,7 +103,7 @@ let least_upper_bound (x : static_type) (y : static_type) =
   match (x, y) with
   | Class "Object", _ -> Class "Object"
   | _, Class "Object" -> Class "Object"
-  | _, _ -> (
+  | _, _ ->
       let xname = type_to_str x in
       let yname = type_to_str y in
       let rec goto_root (node : string) =
@@ -121,9 +121,14 @@ let least_upper_bound (x : static_type) (y : static_type) =
         | hx :: tx, hy :: ty when hx = hy -> hx :: find_common tx ty
         | _ -> []
       in
-      match find_common path_x path_y with
-      | [] -> failwith "lub failure (BUG!!!)"
-      | hd :: tl -> Class hd)
+      let rec grab_last lst =
+        match lst with
+        | [] -> failwith "bug!!!! lub failure!!"
+        | [ x ] -> x
+        | _ :: tl -> grab_last tl
+      in
+      let common = grab_last (find_common path_x path_y) in
+      Class common
 
 let main () =
   (* De-serialize CL-AST file *)
@@ -920,10 +925,9 @@ let main () =
               (fun acc (Case_Elem ((loc, name), (tloc, tname), exp)) ->
                 if SeenSet.mem tname !seenTypes then (
                   printf
-                      "ERROR: %d: Type-Check: case branch type %s is bound twice\n"
-                      tloc tname;
-                    exit 1;
-                )
+                    "ERROR: %d: Type-Check: case branch type %s is bound twice\n"
+                    tloc tname;
+                  exit 1)
                 else (
                   Hashtbl.add o name (Class tname);
                   let branchType = tc cname o m exp in

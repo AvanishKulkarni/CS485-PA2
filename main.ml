@@ -340,11 +340,6 @@ let main () =
   Hashtbl.add inheritance "Object" "IO";
 
   Hashtbl.add class_map_method "Object"
-    ( (0, "abort"),
-      [],
-      (0, "Object"),
-      { loc = 0; exp_kind = Object "Object"; static_type = None } );
-  Hashtbl.add class_map_method "Object"
     ( (0, "type_name"),
       [],
       (0, "String"),
@@ -354,6 +349,11 @@ let main () =
       [],
       (0, "SELF_TYPE"),
       { loc = 0; exp_kind = Object "SELF_TYPE"; static_type = None } );
+  Hashtbl.add class_map_method "Object"
+  ( (0, "abort"),
+    [],
+    (0, "Object"),
+    { loc = 0; exp_kind = Object "Object"; static_type = None } );
 
   Hashtbl.add class_map_method "IO"
     ( (0, "out_string"),
@@ -377,6 +377,11 @@ let main () =
       { loc = 0; exp_kind = Integer 0; static_type = None } );
 
   Hashtbl.add class_map_method "String"
+    ( (0, "substr"),
+      [ ((0, "i"), (0, "Int")); ((0, "l"), (0, "Int")) ],
+      (0, "String"),
+      { loc = 0; exp_kind = String ""; static_type = None } );
+  Hashtbl.add class_map_method "String"
     ( (0, "length"),
       [],
       (0, "Int"),
@@ -384,11 +389,6 @@ let main () =
   Hashtbl.add class_map_method "String"
     ( (0, "concat"),
       [ ((0, "s"), (0, "String")) ],
-      (0, "String"),
-      { loc = 0; exp_kind = String ""; static_type = None } );
-  Hashtbl.add class_map_method "String"
-    ( (0, "substr"),
-      [ ((0, "i"), (0, "Int")); ((0, "l"), (0, "Int")) ],
       (0, "String"),
       { loc = 0; exp_kind = String ""; static_type = None } );
 
@@ -611,10 +611,10 @@ let main () =
       methods;
     (* If no errors are found, then add inherited features to the class map*)
     List.iter (fun _ -> Hashtbl.remove class_map_method cname) methods;
+    List.iter (fun meth -> Hashtbl.add class_map_method cname meth) (List.rev methods);
     List.iter
       (fun meth -> Hashtbl.add class_map_method cname meth)
-      inherited_methods;
-    List.iter (fun meth -> Hashtbl.add class_map_method cname meth) methods;
+      (List.rev inherited_methods);
     List.iter (fun _ -> Hashtbl.remove class_map_attr cname) attributes;
     List.iter
       (fun attr -> Hashtbl.add class_map_attr cname attr)
@@ -1136,6 +1136,7 @@ let main () =
     List.iter
       (fun cname ->
         fprintf fout "%s\n" cname;
+        (* printf "Class: %s, Methods: " cname; *)
         let methods = Hashtbl.find_all class_map_method cname in
         fprintf fout "%d\n" (List.length methods);
         set_envs cname;
@@ -1144,6 +1145,7 @@ let main () =
             let (mloc, mname), mformals, (returnloc, returntype), mbody =
               meth
             in
+            printf "%s " mname;
             fprintf fout "%s\n%d\n" mname (List.length mformals);
             (* Check body return type matches method type *)
             List.iter
@@ -1169,7 +1171,9 @@ let main () =
               Output the name of the highest parent class that defined 
               the method body expression, otherwise output current class *))
               mformals)
-          (List.rev methods))
+          (methods)
+          (* printf "\n"; *)
+          )
       sorted_classes
   in
 

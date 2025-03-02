@@ -100,26 +100,30 @@ let find_parent cname inheritance =
 
 (* TODO Implement *)
 let least_upper_bound (x : static_type) (y : static_type) =
-  let xname = type_to_str x in
-  let yname = type_to_str y in
-  let rec goto_root (node : string) =
-    match find_parent node inheritance with
-    | None -> [ node ]
-    | Some parent -> node :: goto_root parent
-  in
+  match (x, y) with
+  | Class "Object", _ -> Class "Object"
+  | _, Class "Object" -> Class "Object"
+  | _, _ -> (
+      let xname = type_to_str x in
+      let yname = type_to_str y in
+      let rec goto_root (node : string) =
+        match find_parent node inheritance with
+        | None -> [ node ]
+        | Some parent -> node :: goto_root parent
+      in
 
-  let path_x = List.rev (goto_root xname) in
-  let path_y = List.rev (goto_root yname) in
+      let path_x = List.rev (goto_root xname) in
+      let path_y = List.rev (goto_root yname) in
 
-  (* start at root, go down until divergence *)
-  let rec find_common px py =
-    match (px, py) with
-    | hx :: tx, hy :: ty when hx = hy -> hx :: find_common tx ty
-    | _ -> []
-  in
-  match find_common path_x path_y with
-  | [] -> failwith "lub failure (BUG!!!)"
-  | hd :: tl -> Class hd
+      (* start at root, go down until divergence *)
+      let rec find_common px py =
+        match (px, py) with
+        | hx :: tx, hy :: ty when hx = hy -> hx :: find_common tx ty
+        | _ -> []
+      in
+      match find_common path_x path_y with
+      | [] -> failwith "lub failure (BUG!!!)"
+      | hd :: tl -> Class hd)
 
 let main () =
   (* De-serialize CL-AST file *)
@@ -908,18 +912,34 @@ let main () =
               Hashtbl.remove o vname)
             bindlist;
           body_type
-      | Case (e1, caselist) ->
-          let caseType = tc cname o m e1 in
-          let resultType = ref (Class "Object") in
+      | Case (e0, caselist) ->
+          ignore (tc cname o m e0);
           let seenTypes = ref SeenSet.empty in
-          List.iter
-            (fun (Case_Elem ((loc, name), (tloc, tname), exp)) ->
-              if SeenSet.mem tname !seenTypes then ();
-              Hashtbl.add o name (Class tname);
-              resultType := least_upper_bound !resultType (tc cname o m exp);
-              Hashtbl.remove o name)
-            caselist;
-          Class "void"
+          let branchTypes =
+            List.fold_left
+              (fun acc (Case_Elem ((loc, name), (tloc, tname), exp)) ->
+                if SeenSet.mem tname !seenTypes then acc
+                else (
+                  Hashtbl.add o name (Class tname);
+                  let branchType = tc cname o m exp in
+                  if tname = "SELF_TYPE" then (
+                    printf
+                      "ERROR: %d: Type-Check: using %s as a case branch type \
+                       is not allowed\n"
+                      tloc tname;
+                    exit 1);
+                  Hashtbl.remove o name;
+                  branchType :: acc))
+              [] caselist
+          in
+          let lub_list branchTypes =
+            match branchTypes with
+            | [] -> failwith "case error bug!!!! somehow no case"
+            | [ x ] -> x
+            | hd :: tl ->
+                List.fold_left (fun acc ce -> least_upper_bound acc ce) hd tl
+          in
+          lub_list branchTypes
       | Object c -> Class c (* TODO: handle SELF_TYPE or specific objects *)
     in
     (* write to type field *)

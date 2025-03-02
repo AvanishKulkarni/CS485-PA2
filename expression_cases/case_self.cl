@@ -5,7 +5,7 @@ class Main inherits IO {
 
     case_self(): Int { 
         {
-            case self of
+            case 1 of
                 self:SELF_TYPE => {0;};
             esac;
         }

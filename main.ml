@@ -695,10 +695,10 @@ let main () =
     List.iter (fun _ -> Hashtbl.remove class_map_attr cname) attributes;
     List.iter
       (fun attr -> Hashtbl.add class_map_attr cname attr)
-      (attributes);
+      (List.rev attributes);
     List.iter
       (fun attr -> Hashtbl.add class_map_attr cname attr)
-      (inherited_attributes);
+      (List.rev inherited_attributes);
     let child_classes = Hashtbl.find_all inheritance cname in
     List.iter (fun cl -> feature_check cname cl) child_classes
   in
@@ -1213,7 +1213,7 @@ let main () =
                       aloc (type_to_str init_type) (type_to_str atype);
                     exit 1);
                 output_exp init)
-          (List.rev attributes)
+          (attributes)
         (* Attributes are stored in reverse order due to how insertion into hash tables work*))
       sorted_classes
   in

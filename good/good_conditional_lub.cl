@@ -1,9 +1,13 @@
+class A {};
+class B inherits A {};
+class C inherits A {};
 class Main inherits IO {
-    main(): Object {
-        if true then
-            1
+    x : A <- if true then
+            (new B)
         else
-            ""
-        fi
+            (new C)
+        fi;
+    main(): Object {
+        1
     };
 };

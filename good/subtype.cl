@@ -8,6 +8,9 @@ class B inherits A {
     print() : Int {
         2
     };
+    testB() : String {
+        "Hello"
+    };
 };
 
 class Main inherits IO {
@@ -16,6 +19,8 @@ class Main inherits IO {
     y: A <- (new B);
 
     main(): Object {
-        1
+        {
+            1;
+        }
     };
 };

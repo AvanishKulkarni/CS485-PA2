@@ -64,7 +64,7 @@ let inheritance : (name, name) Hashtbl.t = Hashtbl.create 255
 let class_map_attr : (name, id * cool_type * exp option) Hashtbl.t =
   Hashtbl.create 255
 
-let class_map_method : (name, id * formal list * cool_type * exp) Hashtbl.t =
+let class_map_method : (name, id * formal list * cool_type * exp * name) Hashtbl.t =
   Hashtbl.create 255
 
 (*defined this way so we can make arbitrary new object_envs *)
@@ -343,54 +343,64 @@ let main () =
     ( (0, "type_name"),
       [],
       (0, "String"),
-      { loc = 0; exp_kind = String ""; static_type = None } );
+      { loc = 0; exp_kind = String ""; static_type = None },
+      "Object");
   Hashtbl.add class_map_method "Object"
     ( (0, "copy"),
       [],
       (0, "SELF_TYPE"),
-      { loc = 0; exp_kind = Object "SELF_TYPE"; static_type = None } );
+      { loc = 0; exp_kind = Object "SELF_TYPE"; static_type = None },
+      "Object");
   Hashtbl.add class_map_method "Object"
   ( (0, "abort"),
     [],
     (0, "Object"),
-    { loc = 0; exp_kind = Object "Object"; static_type = None } );
+    { loc = 0; exp_kind = Object "Object"; static_type = None },
+    "Object");
 
   Hashtbl.add class_map_method "IO"
     ( (0, "out_string"),
       [ ((0, "x"), (0, "String")) ],
       (0, "SELF_TYPE"),
-      { loc = 0; exp_kind = Object "SELF_TYPE"; static_type = None } );
+      { loc = 0; exp_kind = Object "SELF_TYPE"; static_type = None },
+      "IO");
   Hashtbl.add class_map_method "IO"
     ( (0, "out_int"),
       [ ((0, "x"), (0, "Int")) ],
       (0, "SELF_TYPE"),
-      { loc = 0; exp_kind = Object "SELF_TYPE"; static_type = None } );
+      { loc = 0; exp_kind = Object "SELF_TYPE"; static_type = None },
+      "IO");
   Hashtbl.add class_map_method "IO"
     ( (0, "in_string"),
       [],
       (0, "String"),
-      { loc = 0; exp_kind = String ""; static_type = None } );
+      { loc = 0; exp_kind = String ""; static_type = None },
+      "IO");
   Hashtbl.add class_map_method "IO"
     ( (0, "in_int"),
       [],
       (0, "Int"),
-      { loc = 0; exp_kind = Integer 0; static_type = None } );
+      { loc = 0; exp_kind = Integer 0; static_type = None },
+      "IO");
 
   Hashtbl.add class_map_method "String"
     ( (0, "substr"),
       [ ((0, "i"), (0, "Int")); ((0, "l"), (0, "Int")) ],
       (0, "String"),
-      { loc = 0; exp_kind = String ""; static_type = None } );
+      { loc = 0; exp_kind = String ""; static_type = None },
+      "String");
   Hashtbl.add class_map_method "String"
     ( (0, "length"),
       [],
       (0, "Int"),
-      { loc = 0; exp_kind = Integer 0; static_type = None } );
+      { loc = 0; exp_kind = Integer 0; static_type = None },
+      "String");
   Hashtbl.add class_map_method "String"
     ( (0, "concat"),
       [ ((0, "s"), (0, "String")) ],
       (0, "String"),
-      { loc = 0; exp_kind = String ""; static_type = None } );
+      { loc = 0; exp_kind = String ""; static_type = None },
+      "String");
 
   (* 
         look for inheritance from Int 
@@ -426,7 +436,7 @@ let main () =
                   Hashtbl.add class_map_attr cname (aid, atype, None)
               | Method (mid, formal_list, mtype, mexp) ->
                   Hashtbl.add class_map_method cname
-                    (mid, formal_list, mtype, mexp))
+                    (mid, formal_list, mtype, mexp, cname)) (* method name, formal list, return type, method expression, and source class *)
             lst);
       match inherits with
       | None -> Hashtbl.add inheritance "Object" cname
@@ -501,7 +511,7 @@ let main () =
 
       (* Check for redefined method *)
       List.iter
-        (fun ((loc, mname), formal_list, _, _) ->
+        (fun ((loc, mname), formal_list, _, _, _) ->
           if SeenSet.mem mname !meth_seen then (
             printf "ERROR: %d: Type-Check: class %s redefines method %s\n" loc
               cname mname;
@@ -552,7 +562,7 @@ let main () =
           exit 1))
       (List.rev attributes);
     List.iter
-      (fun ((mloc, mname), formal_list, (typeloc, mtype), _) ->
+      (fun ((mloc, mname), formal_list, (typeloc, mtype), _, _) ->
         (* Checks each formal parameter to see if the type exists *)
         List.iter
           (fun ((floc, fname), (ftloc, ftype)) ->
@@ -578,7 +588,7 @@ let main () =
             typeloc cname mname mtype;
           exit 1);
         List.iter
-          (fun ((imloc, imname), iformal_list, (itypeloc, imtype), _) ->
+          (fun ((imloc, imname), iformal_list, (itypeloc, imtype), _, _) ->
             (* if (mname = imname) then begin *)
             if is_subtype mname imname then (
               (* Checking for inherited method redefinitions*)
@@ -613,7 +623,12 @@ let main () =
     List.iter (fun _ -> Hashtbl.remove class_map_method cname) methods;
     List.iter (fun meth -> Hashtbl.add class_map_method cname meth) (List.rev methods);
     List.iter
-      (fun meth -> Hashtbl.add class_map_method cname meth)
+      (fun meth -> 
+        let (_, mname), _,_,_,_ = meth in
+        if not (List.mem mname (List.map (fun ((_,name),_,_,_,_ ) -> name) methods)) then (
+          Hashtbl.add class_map_method cname meth;
+        );
+        )
       (List.rev inherited_methods);
     List.iter (fun _ -> Hashtbl.remove class_map_attr cname) attributes;
     List.iter
@@ -632,13 +647,13 @@ let main () =
   (* BLOCK 2 END *)
   (* Check for main() method in Main or inherited classes*)
   let main_methods = Hashtbl.find_all class_map_method "Main" in
-  let method_names = List.map (fun ((_, name), _, _, _) -> name) main_methods in
+  let method_names = List.map (fun ((_, name), _, _, _, _) -> name) main_methods in
   if not (List.mem "main" method_names) then (
     printf "ERROR: 0: Type-Check: class Main method main not found\n";
     exit 1);
   (* Checking to see if the main method has zero parameters *)
   List.iter
-    (fun ((_, name), formals, _, _) ->
+    (fun ((_, name), formals, _, _, _) ->
       if name = "main" && List.length formals <> 0 then (
         printf
           "ERROR: 0: Type-Check: class Main method main with 0 parameters not \
@@ -1084,7 +1099,7 @@ let main () =
       (Hashtbl.find_all class_map_attr cname);
     Hashtbl.add global_obj_env "self" (Class cname);
     List.iter
-      (fun ((_, mname), formals, (_, rtype), _) ->
+      (fun ((_, mname), formals, (_, rtype), _, _) ->
         let newFormals = List.map (fun (_, (_, ftype)) -> ftype) formals in
         let newFormals = newFormals @ [ rtype ] in
         if not (Hashtbl.mem global_meth_env (Class cname, mname)) then
@@ -1136,16 +1151,16 @@ let main () =
     List.iter
       (fun cname ->
         fprintf fout "%s\n" cname;
-        (* printf "Class: %s, Methods: " cname; *)
+        (* printf "Class: %s\n Methods: " cname; *)
         let methods = Hashtbl.find_all class_map_method cname in
         fprintf fout "%d\n" (List.length methods);
         set_envs cname;
         List.iter
           (fun meth ->
-            let (mloc, mname), mformals, (returnloc, returntype), mbody =
+            let (mloc, mname), mformals, (returnloc, returntype), mbody, src_class =
               meth
             in
-            printf "%s " mname;
+            (* printf "%s (%s). " mname src_class; *)
             fprintf fout "%s\n%d\n" mname (List.length mformals);
             (* Check body return type matches method type *)
             List.iter

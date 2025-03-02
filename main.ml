@@ -930,6 +930,11 @@ let main () =
                   exit 1)
                 else (
                   Hashtbl.add o name (Class tname);
+                  if name = "self" then (
+                    printf
+                      "ERROR: %d: Type-Check: binding %s in a case expression is not allowed\n"
+                      loc name;
+                    exit 1);
                   let branchType = tc cname o m exp in
                   if tname = "SELF_TYPE" then (
                     printf

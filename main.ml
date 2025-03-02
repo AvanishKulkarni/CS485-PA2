@@ -760,7 +760,7 @@ let main () =
             (fun ind exp ->
               let exp_type = tc cname o m exp in
               let formal_type = Class (List.nth meth ind) in
-              if formal_type <> exp_type then (
+              if not (is_subtype (type_to_str exp_type) (type_to_str formal_type)) then (
                 printf
                   "ERROR: %d: Type-Check: argument #%d type %s does not \
                    conform to formal type %s\n"
@@ -804,7 +804,7 @@ let main () =
             (fun ind exp ->
               let exp_type = tc cname o m exp in
               let formal_type = Class (List.nth meth ind) in
-              if formal_type <> exp_type then (
+              if not (is_subtype (type_to_str exp_type) (type_to_str formal_type)) then (
                 printf
                   "ERROR: %d: Type-Check: argument #%d type %s does not \
                    conform to formal type %s\n"
@@ -838,7 +838,7 @@ let main () =
             (fun ind exp ->
               let exp_type = tc cname o m exp in
               let formal_type = Class (List.nth meth ind) in
-              if formal_type <> exp_type then (
+              if not (is_subtype (type_to_str exp_type) (type_to_str formal_type)) then (
                 printf
                   "ERROR: %d: Type-Check: argument #%d type %s does not \
                    conform to formal type %s\n"
@@ -906,10 +906,15 @@ let main () =
           (* [Compare] *)
           let t1 = tc cname o m e1 in
           let t2 = tc cname o m e2 in
-          if t1 <> Class "Int" || t2 <> Class "Int" then (
-            printf "ERROR: %d: Type-Check: comparison between %s and %s\n"
-              exp.loc (type_to_str t1) (type_to_str t2);
-            exit 1);
+          (match t1 with
+          | Class "Int" | Class "String" | Class "Bool" ->
+              if type_to_str t1 <> type_to_str t2 then (
+                printf "ERROR: %d: Type-Check: comparison between %s and %s\n"
+                  exp.loc (type_to_str t1) (type_to_str t2);
+                exit 1)
+          | _ ->
+              (* Do nothing, since non default objects can be equated freely *)
+              ());
           Class "Bool"
       | Eq (e1, e2) ->
           (* [Equal] *)

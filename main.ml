@@ -54,7 +54,10 @@ and exp_kind =
   | Bool of string (* bool *)
   | Let of binding list * exp
   | Case of exp * case_elem list
-  | Object of string (* SELF_TYPE or another class *)
+  | Internal of
+      string
+      * string
+      * string (* return class, class its defined in, method name *)
 
 and binding = Binding of id * cool_type * exp option
 and case_elem = Case_Elem of id * cool_type * exp
@@ -343,63 +346,103 @@ let main () =
     ( (0, "type_name"),
       [],
       (0, "String"),
-      { loc = 0; exp_kind = String ""; static_type = None },
+      {
+        loc = 0;
+        exp_kind = Internal ("String", "Object", "type_name");
+        static_type = None;
+      },
       "Object" );
   Hashtbl.add class_map_method "Object"
     ( (0, "copy"),
       [],
       (0, "SELF_TYPE"),
-      { loc = 0; exp_kind = Object "SELF_TYPE"; static_type = None },
+      {
+        loc = 0;
+        exp_kind = Internal ("SELF_TYPE", "Object", "copy");
+        static_type = None;
+      },
       "Object" );
   Hashtbl.add class_map_method "Object"
     ( (0, "abort"),
       [],
       (0, "Object"),
-      { loc = 0; exp_kind = Object "Object"; static_type = None },
+      {
+        loc = 0;
+        exp_kind = Internal ("Object", "Object", "abort");
+        static_type = None;
+      },
       "Object" );
 
   Hashtbl.add class_map_method "IO"
     ( (0, "out_string"),
       [ ((0, "x"), (0, "String")) ],
       (0, "SELF_TYPE"),
-      { loc = 0; exp_kind = Object "SELF_TYPE"; static_type = None },
+      {
+        loc = 0;
+        exp_kind = Internal ("SELF_TYPE", "IO", "out_string");
+        static_type = None;
+      },
       "IO" );
   Hashtbl.add class_map_method "IO"
     ( (0, "out_int"),
       [ ((0, "x"), (0, "Int")) ],
       (0, "SELF_TYPE"),
-      { loc = 0; exp_kind = Object "SELF_TYPE"; static_type = None },
+      {
+        loc = 0;
+        exp_kind = Internal ("SELF_TYPE", "IO", "out_int");
+        static_type = None;
+      },
       "IO" );
   Hashtbl.add class_map_method "IO"
     ( (0, "in_string"),
       [],
       (0, "String"),
-      { loc = 0; exp_kind = String ""; static_type = None },
+      {
+        loc = 0;
+        exp_kind = Internal ("String", "IO", "in_string");
+        static_type = None;
+      },
       "IO" );
   Hashtbl.add class_map_method "IO"
     ( (0, "in_int"),
       [],
       (0, "Int"),
-      { loc = 0; exp_kind = Integer 0; static_type = None },
+      {
+        loc = 0;
+        exp_kind = Internal ("Int", "IO", "in_int");
+        static_type = None;
+      },
       "IO" );
 
   Hashtbl.add class_map_method "String"
     ( (0, "substr"),
       [ ((0, "i"), (0, "Int")); ((0, "l"), (0, "Int")) ],
       (0, "String"),
-      { loc = 0; exp_kind = String ""; static_type = None },
+      {
+        loc = 0;
+        exp_kind = Internal ("String", "String", "substr");
+        static_type = None;
+      },
       "String" );
   Hashtbl.add class_map_method "String"
     ( (0, "length"),
       [],
       (0, "Int"),
-      { loc = 0; exp_kind = Integer 0; static_type = None },
+      {
+        loc = 0;
+        exp_kind = Internal ("Int", "String", "length");
+        static_type = None;
+      },
       "String" );
   Hashtbl.add class_map_method "String"
     ( (0, "concat"),
       [ ((0, "s"), (0, "String")) ],
       (0, "String"),
-      { loc = 0; exp_kind = String ""; static_type = None },
+      {
+        loc = 0;
+        exp_kind = Internal ("String", "String", "concat");
+        static_type = None;
+      },
       "String" );
 
   (* 
@@ -844,6 +887,7 @@ let main () =
           check_class_exists iloc itype;
           match itype with "SELF_TYPE" -> SELF_TYPE itype | _ -> Class itype)
       | Isvoid e ->
+          ignore (tc cname o m e);
           (* [Isvoid] *)
           Class "Bool"
       | Plus (e1, e2) | Minus (e1, e2) | Times (e1, e2) | Divide (e1, e2) ->
@@ -977,7 +1021,7 @@ let main () =
                 List.fold_left (fun acc ce -> least_upper_bound acc ce) hd tl
           in
           lub_list branchTypes
-      | Object c -> Class c (* TODO: handle SELF_TYPE or specific objects *)
+      | Internal (c, d, n) -> Class c
     in
     (* write to type field *)
     exp.static_type <- Some static_type;
@@ -994,7 +1038,7 @@ let main () =
     fprintf fout "%d\n" e.loc;
     (* Output type annotation *)
     (match e.static_type with
-    | None -> fprintf fout ""
+    | None -> fprintf fout "\n"
     | Some (Class c) -> fprintf fout "%s\n" c
     | Some (SELF_TYPE c) -> fprintf fout "");
     match e.exp_kind with
@@ -1094,7 +1138,7 @@ let main () =
             fprintf fout "%d\n%s\n%d\n%s\n" cid cname ctid ctname;
             output_exp exp)
           elemlist
-    | Object _ -> ()
+    | Internal (m, c, name) -> fprintf fout "internal\n%s.%s\n" c name
   in
 
   let sorted_all_classes = List.sort compare all_classes in
@@ -1114,8 +1158,7 @@ let main () =
       (Hashtbl.find_all class_map_method cname)
   in
   (* Function to print class map *)
-  let print_class_map fout (sorted_classes : name list) class_map_attr
-      output_exp =
+  let print_class_map fout sorted_classes class_map_attr output_exp =
     fprintf fout "class_map\n%d\n" (List.length all_classes);
 
     List.iter
@@ -1171,8 +1214,6 @@ let main () =
                   src_class ) =
               meth
             in
-            (* printf "%s (%s). " mname src_class; *)
-            fprintf fout "%s\n%d\n" mname (List.length mformals);
             (* Check body return type matches method type *)
             List.iter
               (fun ((_, fmname), (_, fmtype)) ->
@@ -1188,10 +1229,10 @@ let main () =
                 mloc (type_to_str body_type) returntype mname;
               exit 1);
             (* Print formals *)
+            fprintf fout "%s\n%d\n" mname (List.length mformals);
             List.iter
               (fun ((_, fmname), _) ->
                 fprintf fout "%s\n" fmname;
-                fprintf fout "%s\n" cname;
                 Hashtbl.remove global_obj_env fmname)
               mformals;
             (* If this method is inherited but NOT OVERIDDEN 

@@ -8,7 +8,7 @@ type static_type =
 
 module SeenSet = Set.Make (String)
 
-let type_to_str t = match t with Class x -> x | SELF_TYPE c -> "SELF_TYPE"
+let type_to_str t = match t with Class x -> x | SELF_TYPE c -> c
 
 type cool_program = cool_class list
 and loc = int
@@ -887,7 +887,7 @@ let main () =
           (* [New] *)
           let iloc, itype = i in
           check_class_exists iloc itype;
-          match itype with "SELF_TYPE" -> SELF_TYPE itype | _ -> Class itype)
+          match itype with "SELF_TYPE" -> SELF_TYPE cname | _ -> Class itype)
       | Isvoid e ->
           (* [Isvoid] *)
           ignore (tc cname o m e);
@@ -1155,7 +1155,7 @@ let main () =
       (fun ((_, aname), (_, atype), _) ->
         Hashtbl.add global_obj_env aname (Class atype))
       (Hashtbl.find_all class_map_attr cname);
-    Hashtbl.add global_obj_env "self" (Class cname);
+    Hashtbl.add global_obj_env "self" (SELF_TYPE cname);
     List.iter
       (fun ((_, mname), formals, (_, rtype), _, _) ->
         let newFormals = List.map (fun (_, (_, ftype)) -> ftype) formals in
@@ -1181,9 +1181,11 @@ let main () =
                 fprintf fout "no_initializer\n%s\n%s\n" aname atype
             | (aloc, aname), (_, atype), Some init ->
                 fprintf fout "initializer\n%s\n%s\n" aname atype;
+                let atype = if (atype = "SELF_TYPE") then SELF_TYPE cname else Class atype
+                in
                 let init_type = tc cname global_obj_env global_meth_env init in
-                if not (is_subtype (type_to_str init_type) atype) then
-                  if atype = "SELF_TYPE" then (
+                if not (is_subtype (type_to_str init_type) (type_to_str atype)) then
+                  if atype = (SELF_TYPE cname) then (
                     printf
                       "ERROR: %d: Type-Check: %s does not conform to \
                        SELF_TYPE(%s) in initialized attribute\n"
@@ -1193,7 +1195,7 @@ let main () =
                     printf
                       "ERROR: %d: Type-Check: %s does not conform to %s in \
                        initialized attribute\n"
-                      aloc (type_to_str init_type) atype;
+                      aloc (type_to_str init_type) (type_to_str atype);
                     exit 1);
                 output_exp init)
           (List.rev attributes)
@@ -1230,7 +1232,7 @@ let main () =
             let m = global_meth_env in
             let body_type = tc cname o m mbody in
             (* TODO: This is erroring on comparing return types and body types of builtin methods *)
-            if not (is_subtype (type_to_str body_type) returntype) then (
+            if not (is_subtype (type_to_str body_type) returntype) && not (returntype = "SELF_TYPE" && is_subtype (type_to_str body_type) cname) then (
               printf
                 "ERROR: %d: Type-Check: %s does not conform to %s in method %s\n"
                 mloc (type_to_str body_type) returntype mname;
@@ -1274,10 +1276,10 @@ let main () =
         | None -> fprintf fout "no_inherits\n"
         (* inherits from Object by default *)
         | Some (iloc, iname) -> fprintf fout "inherits\n%d\n%s\n" iloc iname);
+        fprintf fout "%d\n" (List.length features);
         match features with
         | [] -> fprintf fout ""
         | lst ->
-            fprintf fout "%d\n" (List.length lst);
             List.iter
               (fun feat ->
                 match feat with

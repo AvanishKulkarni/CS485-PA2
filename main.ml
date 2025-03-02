@@ -918,7 +918,12 @@ let main () =
           let branchTypes =
             List.fold_left
               (fun acc (Case_Elem ((loc, name), (tloc, tname), exp)) ->
-                if SeenSet.mem tname !seenTypes then acc
+                if SeenSet.mem tname !seenTypes then (
+                  printf
+                      "ERROR: %d: Type-Check: case branch type %s is bound twice\n"
+                      tloc tname;
+                    exit 1;
+                )
                 else (
                   Hashtbl.add o name (Class tname);
                   let branchType = tc cname o m exp in
@@ -929,6 +934,7 @@ let main () =
                       tloc tname;
                     exit 1);
                   Hashtbl.remove o name;
+                  seenTypes := SeenSet.add tname !seenTypes;
                   branchType :: acc))
               [] caselist
           in

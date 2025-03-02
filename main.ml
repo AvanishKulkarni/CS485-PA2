@@ -769,7 +769,8 @@ let main () =
                 exit 1))
             elist;
           let rtype = List.hd (List.rev meth) in
-          if rtype = "SELF_TYPE" then SELF_TYPE (type_to_str class_type) else Class rtype
+          if rtype = "SELF_TYPE" then SELF_TYPE (type_to_str class_type)
+          else Class rtype
       | Static_Dispatch (e1, (_, static_class), i2, elist) ->
           let calling_class = tc cname o m e1 in
           if not (is_subtype (type_to_str calling_class) static_class) then (
@@ -812,7 +813,8 @@ let main () =
                 exit 1))
             elist;
           let rtype = List.hd (List.rev meth) in
-          if rtype = "SELF_TYPE" then SELF_TYPE (type_to_str calling_class) else Class rtype
+          if rtype = "SELF_TYPE" then SELF_TYPE (type_to_str calling_class)
+          else Class rtype
       | Self_Dispatch (i, elist) ->
           let mloc, mname = i in
           (* Checks if the method exists *)
@@ -887,8 +889,8 @@ let main () =
           check_class_exists iloc itype;
           match itype with "SELF_TYPE" -> SELF_TYPE itype | _ -> Class itype)
       | Isvoid e ->
-          ignore (tc cname o m e);
           (* [Isvoid] *)
+          ignore (tc cname o m e);
           Class "Bool"
       | Plus (e1, e2) | Minus (e1, e2) | Times (e1, e2) | Divide (e1, e2) ->
           (* [Arith] *)
@@ -1258,40 +1260,41 @@ let main () =
             | None -> "BUG FOUND - find_parent cannot find parent!!!!"))
       sorted_classes
   in
-  let print_annoated_ast fout ast output_exp = 
+  let print_annoated_ast fout ast output_exp =
     fprintf fout "%d\n" (List.length ast);
     List.iter
-    (fun ((cloc, cname), inherits, features) ->
-      fprintf fout "%d\n%s\n" cloc cname;
-      (match inherits with
-      | None -> fprintf fout "no_inherits\n";
-      (* inherits from Object by default *)
-      | Some (iloc, iname) ->
-          fprintf fout "inherits\n%d\n%s\n" iloc iname);
-      (match features with
-      | [] -> fprintf fout ""
-      | lst ->
-          fprintf fout "%d\n" (List.length lst);
-          List.iter
-            (fun feat ->
-              match feat with
-              | Attribute ((aloc,aname), (atloc, atype), Some aexp) ->
-                  fprintf fout "attribute_init\n%d\n%s\n%d\n%s\n" aloc aname atloc atype;
-                  output_exp aexp;
-              | Attribute ((aloc,aname), (atloc, atype), None) ->
-                  fprintf fout "attribute_no_init\n%d\n%s\n%d\n%s\n" aloc aname atloc atype;
-              | Method ((mloc,mname), formal_list, (mtloc, mtype), mexp) ->
-                  fprintf fout "method\n%d\n%s\n%d\n" mloc mname (List.length formal_list);
-                  List.iter ( fun ((floc,fname), (ftloc,ftname)) ->
-                    fprintf fout "%d\n%s\n%d\n%s\n" floc fname ftloc ftname;
-                  ) formal_list;
-                  fprintf fout "%d\n%s\n" mtloc mtype;
-                  output_exp mexp;
-                )
-              (* method name, formal list, return type, method expression, and source class *)
-            lst);
-      )
-    ast;
+      (fun ((cloc, cname), inherits, features) ->
+        fprintf fout "%d\n%s\n" cloc cname;
+        (match inherits with
+        | None -> fprintf fout "no_inherits\n"
+        (* inherits from Object by default *)
+        | Some (iloc, iname) -> fprintf fout "inherits\n%d\n%s\n" iloc iname);
+        match features with
+        | [] -> fprintf fout ""
+        | lst ->
+            fprintf fout "%d\n" (List.length lst);
+            List.iter
+              (fun feat ->
+                match feat with
+                | Attribute ((aloc, aname), (atloc, atype), Some aexp) ->
+                    fprintf fout "attribute_init\n%d\n%s\n%d\n%s\n" aloc aname
+                      atloc atype;
+                    output_exp aexp
+                | Attribute ((aloc, aname), (atloc, atype), None) ->
+                    fprintf fout "attribute_no_init\n%d\n%s\n%d\n%s\n" aloc
+                      aname atloc atype
+                | Method ((mloc, mname), formal_list, (mtloc, mtype), mexp) ->
+                    fprintf fout "method\n%d\n%s\n%d\n" mloc mname
+                      (List.length formal_list);
+                    List.iter
+                      (fun ((floc, fname), (ftloc, ftname)) ->
+                        fprintf fout "%d\n%s\n%d\n%s\n" floc fname ftloc ftname)
+                      formal_list;
+                    fprintf fout "%d\n%s\n" mtloc mtype;
+                    output_exp mexp)
+                (* method name, formal list, return type, method expression, and source class *)
+              lst)
+      ast
   in
   (match args_array with
   | [ prog; coolprog ] ->

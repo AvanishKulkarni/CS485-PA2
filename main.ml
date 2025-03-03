@@ -8,7 +8,7 @@ type static_type =
 
 module SeenSet = Set.Make (String)
 
-let type_to_str t = match t with Class x -> x | SELF_TYPE c -> c
+let type_to_str t = match t with Class x -> x | SELF_TYPE c -> "SELF_TYPE("^c^")"
 
 type cool_program = cool_class list
 and loc = int
@@ -79,7 +79,17 @@ let global_obj_env : obj_env = Hashtbl.create 255
 let global_meth_env : meth_env = Hashtbl.create 255
 
 (* Is x a subtype of y *)
-let is_subtype (x : name) (y : name) =
+let is_subtype (x : static_type) (y : static_type) =
+  let x = match x with
+  | Class c -> c
+  | SELF_TYPE c -> c
+  in
+  let y =
+  match y with
+  | Class c -> c
+  | SELF_TYPE c -> c
+  in
+  
   match (x, y) with
   | x, y when x = y -> true (* same type *)
   | x, "Object" -> true (* subtype of object *)
@@ -634,7 +644,7 @@ let main () =
         List.iter
           (fun ((imloc, imname), iformal_list, (itypeloc, imtype), _, _) ->
             (* if (mname = imname) then begin *)
-            if is_subtype mname imname then (
+            if is_subtype (Class mname) (Class imname) then (
               (* Checking for inherited method redefinitions*)
               (* Checking for return type change *)
               if mtype <> imtype then (
@@ -746,7 +756,7 @@ let main () =
           let aloc, aname = i in
           let atype = Hashtbl.find o aname in
           let exp_type = tc cname o m e1 in
-          if not (is_subtype (type_to_str exp_type) (type_to_str atype)) then (
+          if not (is_subtype (exp_type) (atype)) then (
             printf
               "ERROR: %d: Type-Check: %s does not conform to %s in initialized \
                attribute\n"
@@ -777,7 +787,7 @@ let main () =
             (fun ind exp ->
               let exp_type = tc cname o m exp in
               let formal_type = Class (List.nth meth ind) in
-              if not (is_subtype (type_to_str exp_type) (type_to_str formal_type)) then (
+              if not (is_subtype (exp_type) (formal_type)) then (
                 printf
                   "ERROR: %d: Type-Check: argument #%d type %s does not \
                    conform to formal type %s\n"
@@ -790,7 +800,7 @@ let main () =
           else Class rtype
       | Static_Dispatch (e1, (_, static_class), i2, elist) ->
           let calling_class = tc cname o m e1 in
-          if not (is_subtype (type_to_str calling_class) static_class) then (
+          if not (is_subtype (calling_class) (Class static_class)) then (
             printf
               "ERROR: %d: Type-Check: %s does not conform to %s in static \
                dispatch\n"
@@ -821,7 +831,7 @@ let main () =
             (fun ind exp ->
               let exp_type = tc cname o m exp in
               let formal_type = Class (List.nth meth ind) in
-              if not (is_subtype (type_to_str exp_type) (type_to_str formal_type)) then (
+              if not (is_subtype (exp_type) (formal_type)) then (
                 printf
                   "ERROR: %d: Type-Check: argument #%d type %s does not \
                    conform to formal type %s\n"
@@ -855,7 +865,7 @@ let main () =
             (fun ind exp ->
               let exp_type = tc cname o m exp in
               let formal_type = Class (List.nth meth ind) in
-              if not (is_subtype (type_to_str exp_type) (type_to_str formal_type)) then (
+              if not (is_subtype (exp_type) (formal_type)) then (
                 printf
                   "ERROR: %d: Type-Check: argument #%d type %s does not \
                    conform to formal type %s\n"
@@ -984,7 +994,7 @@ let main () =
               (* [Let-Init] *)
               | Some binit ->
                   let binit_type = tc cname o m binit in
-                  if not (is_subtype (type_to_str binit_type) typename) then (
+                  if not (is_subtype (binit_type) (Class typename)) then (
                     printf
                       "ERROR: %d: Type-Check: initializer type %s does not \
                        conform to type %s\n"
@@ -1201,14 +1211,7 @@ let main () =
                 let atype = if (atype = "SELF_TYPE") then SELF_TYPE cname else Class atype
                 in
                 let init_type = tc cname global_obj_env global_meth_env init in
-                if not (is_subtype (type_to_str init_type) (type_to_str atype)) then
-                  if atype = (SELF_TYPE cname) then (
-                    printf
-                      "ERROR: %d: Type-Check: %s does not conform to \
-                       SELF_TYPE(%s) in initialized attribute\n"
-                      aloc (type_to_str init_type) cname;
-                    exit 1)
-                  else (
+                if not (is_subtype (init_type) (atype)) then (
                     printf
                       "ERROR: %d: Type-Check: %s does not conform to %s in \
                        initialized attribute\n"
@@ -1250,10 +1253,10 @@ let main () =
             let m = global_meth_env in
             let body_type = tc cname o m mbody in
             (* TODO: This is erroring on comparing return types and body types of builtin methods *)
-            if not (is_subtype (type_to_str body_type) returntype) && not (returntype = "SELF_TYPE" && is_subtype (type_to_str body_type) cname) then (
+            if not (is_subtype (body_type) (Class returntype)) && not (returntype = "SELF_TYPE" && is_subtype (body_type) (Class cname)) then (
               printf
                 "ERROR: %d: Type-Check: %s does not conform to %s in method %s\n"
-                mloc (type_to_str body_type) returntype mname;
+                mloc (type_to_str body_type) (returntype) mname;
               exit 1);
             (* Print formals *)
             fprintf fout "%s\n%d\n" mname (List.length mformals);

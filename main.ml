@@ -676,21 +676,23 @@ let main () =
         then Hashtbl.add class_map_method cname meth)
       (List.rev methods);
     (* Add methods that are inherited/redefined *)
-    List.iter
+(*     List.iter
       (fun meth -> let (_, mname), _, _, _, _ = meth in
       if
           (List.mem mname
              (List.map (fun ((_, name), _, _, _, _) -> name) inherited_methods))
       then Hashtbl.add class_map_method cname meth)
-      (List.rev methods);
+      (List.rev methods); *)
     List.iter
       (fun meth ->
-        let (_, mname), _, _, _, _ = meth in
+        let (mloc, mname), formals, mtype, mexp, _ = meth in
         if
           not
             (List.mem mname
                (List.map (fun ((_, name), _, _, _, _) -> name) methods))
-        then Hashtbl.add class_map_method cname meth)
+        then Hashtbl.add class_map_method cname meth
+        else Hashtbl.add class_map_method cname (List.find (fun ((_, iname), _, _, _, _) -> mname = iname) methods)
+        )
       (List.rev inherited_methods);
     List.iter (fun _ -> Hashtbl.remove class_map_attr cname) attributes;
     List.iter

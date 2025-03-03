@@ -2,30 +2,30 @@ class ACLASS {
     alpha() : Int {
         0
     };
-        redef_in_C() : Int {
-        0
-    };
     redef_in_B() : Int {
-        0
+        2121
+    };
+    redef_in_C() : Int {
+        5657
     };
 
 };
 
 class BCLASS inherits ACLASS {
     redef_in_B() : Int {
-        0
+        2121
     };
     new_in_B() : Int {
-        0
+        1234
     };
 };
 
 class CCLASS inherits BCLASS {
     redef_in_C() : Int {
-        0
+        5657
     };
     new_in_C() : Int {
-        0
+        7567
     };
 };
 

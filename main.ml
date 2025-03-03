@@ -686,12 +686,12 @@ let main () =
           Hashtbl.add class_map_method cname meth)
       (List.rev methods);
 
-    (* Iterate through methods DEFINED CURRENT CLASS and add them 
+    (* Iterate through methods DEFINED IN THE CURRENT CLASS and add them 
     if they ARE redefining inherited methods *)
     List.iter
       (fun meth ->
         let inherited =
-          List.map (fun ((_, name), _, _, _, _) -> name) inherited_methods
+          List.map (fun ((loc, name), _, _, _, _) -> name) inherited_methods
         in
         let (_, mname), _, _, _, _ = meth in
         if List.mem mname inherited then Hashtbl.add class_map_method cname meth)
@@ -1315,7 +1315,7 @@ let main () =
             | None -> "BUG FOUND - find_parent cannot find parent!!!!"))
       sorted_classes
   in
-  let print_annoated_ast fout ast output_exp =
+  let print_annotated_ast fout ast output_exp =
     fprintf fout "%d\n" (List.length ast);
     List.iter
       (fun ((cloc, cname), inherits, features) ->

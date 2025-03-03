@@ -1357,7 +1357,7 @@ let main () =
       print_class_map fout sorted_all_classes class_map_attr output_exp;
       print_impl_map fout sorted_all_classes class_map_method output_exp;
       print_parent_map fout sorted_all_classes inheritance;
-      print_annoated_ast fout ast output_exp
+      print_annotated_ast fout ast output_exp
   | [ prog; coolprog; arg ] when arg = "--class-map" ->
       print_class_map fout sorted_all_classes class_map_attr output_exp
   | [ prog; coolprog; arg ] when arg = "--parent-map" ->

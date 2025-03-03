@@ -549,7 +549,7 @@ let main () =
               loc cname name;
             exit 1);
           attr_seen := SeenSet.add name !attr_seen)
-        (attr_list);
+        attr_list;
       let meth_list = Hashtbl.find_all class_map_method cname in
       let meth_seen = ref SeenSet.empty in
 
@@ -574,7 +574,7 @@ let main () =
                 formal_seen := SeenSet.add pname !formal_seen)
               formal_list;
             meth_seen := SeenSet.add mname !meth_seen)
-        (meth_list))
+        meth_list)
     all_classes;
 
   (* Type Checking features *)
@@ -604,7 +604,7 @@ let main () =
           printf "ERROR: %d: Type-Check: class %s redefines attribute %s\n" aloc
             cname name;
           exit 1))
-      (attributes);
+      attributes;
     List.iter
       (fun ((mloc, mname), formal_list, (typeloc, mtype), _, _) ->
         (* Checks each formal parameter to see if the type exists *)
@@ -663,26 +663,39 @@ let main () =
                 formal_list iformal_list))
           inherited_methods)
       methods;
+
     (* If no errors are found, then add inherited features to the class map*)
+
+    (* Reset method bindings for current class methods *)
     List.iter (fun _ -> Hashtbl.remove class_map_method cname) methods;
-    (* Add methods that aren't redefined inherited methods *)
+
+    (* Iterate through methods DEFINED IN THE CURRENT CLASS and add them 
+    if they AREN'T redefining any inherited methods *)
     List.iter
-      (fun meth -> 
+      (fun meth ->
         let (_, mname), _, _, _, _ = meth in
         if
           not
             (List.mem mname
-               (List.map (fun ((_, name), _, _, _, _) -> name) inherited_methods))
+               (List.map
+                  (fun ((_, name), _, _, _, _) -> name)
+                  inherited_methods))
         then Hashtbl.add class_map_method cname meth)
       (List.rev methods);
-    (* Add methods that are inherited/redefined *)
+
+    (* Iterate through methods DEFINED CURRENT CLASS and add them 
+    if they ARE redefining inherited methods *)
     List.iter
-      (fun meth -> let (_, mname), _, _, _, _ = meth in
-      if
-          (List.mem mname
-             (List.map (fun ((_, name), _, _, _, _) -> name) inherited_methods))
-      then Hashtbl.add class_map_method cname meth)
+      (fun meth ->
+        let (_, mname), _, _, _, _ = meth in
+        if
+          List.mem mname
+            (List.map (fun ((_, name), _, _, _, _) -> name) inherited_methods)
+        then Hashtbl.add class_map_method cname meth)
       (List.rev methods);
+
+    (* Iterate through METHODS INHERITED BY THE CURRENT CLASS and add 
+    them if they AREN'T redefining inherited methods *)
     List.iter
       (fun meth ->
         let (_, mname), _, _, _, _ = meth in
@@ -692,6 +705,8 @@ let main () =
                (List.map (fun ((_, name), _, _, _, _) -> name) methods))
         then Hashtbl.add class_map_method cname meth)
       (List.rev inherited_methods);
+
+    (* Process attributes *)
     List.iter (fun _ -> Hashtbl.remove class_map_attr cname) attributes;
     List.iter
       (fun attr -> Hashtbl.add class_map_attr cname attr)
@@ -775,7 +790,10 @@ let main () =
             (fun ind exp ->
               let exp_type = tc cname o m exp in
               let formal_type = Class (List.nth meth ind) in
-              if not (is_subtype (type_to_str exp_type) (type_to_str formal_type)) then (
+              if
+                not
+                  (is_subtype (type_to_str exp_type) (type_to_str formal_type))
+              then (
                 printf
                   "ERROR: %d: Type-Check: argument #%d type %s does not \
                    conform to formal type %s\n"
@@ -819,7 +837,10 @@ let main () =
             (fun ind exp ->
               let exp_type = tc cname o m exp in
               let formal_type = Class (List.nth meth ind) in
-              if not (is_subtype (type_to_str exp_type) (type_to_str formal_type)) then (
+              if
+                not
+                  (is_subtype (type_to_str exp_type) (type_to_str formal_type))
+              then (
                 printf
                   "ERROR: %d: Type-Check: argument #%d type %s does not \
                    conform to formal type %s\n"
@@ -853,7 +874,10 @@ let main () =
             (fun ind exp ->
               let exp_type = tc cname o m exp in
               let formal_type = Class (List.nth meth ind) in
-              if not (is_subtype (type_to_str exp_type) (type_to_str formal_type)) then (
+              if
+                not
+                  (is_subtype (type_to_str exp_type) (type_to_str formal_type))
+              then (
                 printf
                   "ERROR: %d: Type-Check: argument #%d type %s does not \
                    conform to formal type %s\n"
@@ -1196,11 +1220,13 @@ let main () =
                 fprintf fout "no_initializer\n%s\n%s\n" aname atype
             | (aloc, aname), (_, atype), Some init ->
                 fprintf fout "initializer\n%s\n%s\n" aname atype;
-                let atype = if (atype = "SELF_TYPE") then SELF_TYPE cname else Class atype
+                let atype =
+                  if atype = "SELF_TYPE" then SELF_TYPE cname else Class atype
                 in
                 let init_type = tc cname global_obj_env global_meth_env init in
-                if not (is_subtype (type_to_str init_type) (type_to_str atype)) then
-                  if atype = (SELF_TYPE cname) then (
+                if not (is_subtype (type_to_str init_type) (type_to_str atype))
+                then
+                  if atype = SELF_TYPE cname then (
                     printf
                       "ERROR: %d: Type-Check: %s does not conform to \
                        SELF_TYPE(%s) in initialized attribute\n"
@@ -1213,7 +1239,7 @@ let main () =
                       aloc (type_to_str init_type) (type_to_str atype);
                     exit 1);
                 output_exp init)
-          (attributes)
+          attributes
         (* Attributes are stored in reverse order due to how insertion into hash tables work*))
       sorted_classes
   in
@@ -1248,7 +1274,12 @@ let main () =
             let m = global_meth_env in
             let body_type = tc cname o m mbody in
             (* TODO: This is erroring on comparing return types and body types of builtin methods *)
-            if not (is_subtype (type_to_str body_type) returntype) && not (returntype = "SELF_TYPE" && is_subtype (type_to_str body_type) cname) then (
+            if
+              (not (is_subtype (type_to_str body_type) returntype))
+              && not
+                   (returntype = "SELF_TYPE"
+                   && is_subtype (type_to_str body_type) cname)
+            then (
               printf
                 "ERROR: %d: Type-Check: %s does not conform to %s in method %s\n"
                 mloc (type_to_str body_type) returntype mname;

@@ -663,51 +663,38 @@ let main () =
                 formal_list iformal_list))
           inherited_methods)
       methods;
-
     (* If no errors are found, then add inherited features to the class map*)
-    (* The order of methods is 
-    1. default methods 
-    2. any method overridden anywhere in order of appearance 
-    3. new methods 
-    *)
-
-    (* Reset method bindings for current class methods *)
     List.iter (fun _ -> Hashtbl.remove class_map_method cname) methods;
-
-    (* Iterate through methods DEFINED IN THE CURRENT CLASS and add them 
-    if they AREN'T redefining any inherited methods *)
+    (* Add methods that aren't redefined inherited methods *)
     List.iter
       (fun meth ->
-        let inherited =
-          List.map (fun ((_, name), _, _, _, _) -> name) inherited_methods
-        in
         let (_, mname), _, _, _, _ = meth in
-        if not (List.mem mname inherited) then
-          Hashtbl.add class_map_method cname meth)
+        if
+          not
+            (List.mem mname
+               (List.map
+                  (fun ((_, name), _, _, _, _) -> name)
+                  inherited_methods))
+        then Hashtbl.add class_map_method cname meth)
       (List.rev methods);
-
-    (* Iterate through methods DEFINED IN THE CURRENT CLASS and add them 
-    if they ARE redefining inherited methods *)
+    (* Add methods that are inherited/redefined *)
     List.iter
       (fun meth ->
-        let inherited =
-          List.map (fun ((loc, name), _, _, _, _) -> name) inherited_methods
-        in
         let (_, mname), _, _, _, _ = meth in
-        if List.mem mname inherited then Hashtbl.add class_map_method cname meth)
+        if
+          List.mem mname
+            (List.map (fun ((_, name), _, _, _, _) -> name) inherited_methods)
+        then Hashtbl.add class_map_method cname meth)
       (List.rev methods);
-
-    (* Iterate through METHODS INHERITED BY THE CURRENT CLASS and add 
-    them if they AREN'T redefining inherited methods *)
     List.iter
       (fun meth ->
-        let current = List.map (fun ((_, name), _, _, _, _) -> name) methods in
         let (_, mname), _, _, _, _ = meth in
-        if not (List.mem mname current) then
-          Hashtbl.add class_map_method cname meth)
+        if
+          not
+            (List.mem mname
+               (List.map (fun ((_, name), _, _, _, _) -> name) methods))
+        then Hashtbl.add class_map_method cname meth)
       (List.rev inherited_methods);
-
-    (* Process attributes *)
     List.iter (fun _ -> Hashtbl.remove class_map_attr cname) attributes;
     List.iter
       (fun attr -> Hashtbl.add class_map_attr cname attr)
@@ -1315,7 +1302,7 @@ let main () =
             | None -> "BUG FOUND - find_parent cannot find parent!!!!"))
       sorted_classes
   in
-  let print_annotated_ast fout ast output_exp =
+  let print_annoated_ast fout ast output_exp =
     fprintf fout "%d\n" (List.length ast);
     List.iter
       (fun ((cloc, cname), inherits, features) ->
@@ -1357,7 +1344,7 @@ let main () =
       print_class_map fout sorted_all_classes class_map_attr output_exp;
       print_impl_map fout sorted_all_classes class_map_method output_exp;
       print_parent_map fout sorted_all_classes inheritance;
-      print_annotated_ast fout ast output_exp
+      print_annoated_ast fout ast output_exp
   | [ prog; coolprog; arg ] when arg = "--class-map" ->
       print_class_map fout sorted_all_classes class_map_attr output_exp
   | [ prog; coolprog; arg ] when arg = "--parent-map" ->

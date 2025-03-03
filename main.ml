@@ -665,6 +665,11 @@ let main () =
       methods;
 
     (* If no errors are found, then add inherited features to the class map*)
+    (* The order of methods is 
+    1. default methods 
+    2. any method overridden anywhere in order of appearance 
+    3. new methods 
+    *)
 
     (* Reset method bindings for current class methods *)
     List.iter (fun _ -> Hashtbl.remove class_map_method cname) methods;

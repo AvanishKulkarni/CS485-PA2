@@ -678,37 +678,33 @@ let main () =
     if they AREN'T redefining any inherited methods *)
     List.iter
       (fun meth ->
+        let inherited =
+          List.map (fun ((_, name), _, _, _, _) -> name) inherited_methods
+        in
         let (_, mname), _, _, _, _ = meth in
-        if
-          not
-            (List.mem mname
-               (List.map
-                  (fun ((_, name), _, _, _, _) -> name)
-                  inherited_methods))
-        then Hashtbl.add class_map_method cname meth)
+        if not (List.mem mname inherited) then
+          Hashtbl.add class_map_method cname meth)
       (List.rev methods);
 
     (* Iterate through methods DEFINED CURRENT CLASS and add them 
     if they ARE redefining inherited methods *)
     List.iter
       (fun meth ->
+        let inherited =
+          List.map (fun ((_, name), _, _, _, _) -> name) inherited_methods
+        in
         let (_, mname), _, _, _, _ = meth in
-        if
-          List.mem mname
-            (List.map (fun ((_, name), _, _, _, _) -> name) inherited_methods)
-        then Hashtbl.add class_map_method cname meth)
+        if List.mem mname inherited then Hashtbl.add class_map_method cname meth)
       (List.rev methods);
 
     (* Iterate through METHODS INHERITED BY THE CURRENT CLASS and add 
     them if they AREN'T redefining inherited methods *)
     List.iter
       (fun meth ->
+        let current = List.map (fun ((_, name), _, _, _, _) -> name) methods in
         let (_, mname), _, _, _, _ = meth in
-        if
-          not
-            (List.mem mname
-               (List.map (fun ((_, name), _, _, _, _) -> name) methods))
-        then Hashtbl.add class_map_method cname meth)
+        if not (List.mem mname current) then
+          Hashtbl.add class_map_method cname meth)
       (List.rev inherited_methods);
 
     (* Process attributes *)

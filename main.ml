@@ -719,7 +719,14 @@ let main () =
   List.iter
     (fun cl -> feature_check "Object" cl)
     (Hashtbl.find_all inheritance "Object");
-
+    (* Need to add object's methods since its not actually checked in feature_check*)
+    List.iter
+    (fun ((_, mname), formals, (_, rtype), _, _) ->
+    let newFormals = List.map (fun (_, (_, ftype)) -> ftype) formals in
+    let newFormals = newFormals @ [ rtype ] in
+    if not (Hashtbl.mem global_meth_env (Class "Object", mname)) then
+        Hashtbl.add global_meth_env (Class "Object", mname) newFormals)
+    (Hashtbl.find_all class_map_method "Object");
   (* Check for main() method in Main or inherited classes*)
   let main_methods = Hashtbl.find_all class_map_method "Main" in
   let method_names =
@@ -767,12 +774,15 @@ let main () =
           let class_type = tc cname o m e1 in
           let mloc, mname = i in
           (* Checks if the method exists *)
-          if not (Hashtbl.mem m (class_type, mname)) then (
+            (* Hashtbl.iter (fun (stype, name) _ -> 
+                printf "Class: %s\t method: %s\n" (type_to_str stype) name;    
+            ) m; *)
+          if not (Hashtbl.mem m (Class (type_to_str_clean class_type), mname)) then (
             printf
               "ERROR: %d: Type-Check: unknown method %s in dispatch on %s\n"
               mloc mname (type_to_str class_type);
             exit 1);
-          let meth = Hashtbl.find m (class_type, mname) in
+          let meth = Hashtbl.find m (Class (type_to_str_clean class_type), mname) in
           (* first n-1 elements are formal types, n is return type*)
           (* Checks if number of arguments matches with number of formals *)
           if List.length elist <> List.length meth - 1 then (
@@ -842,11 +852,15 @@ let main () =
             elist;
           let rtype = List.hd (List.rev meth) in
           match rtype with
-          | "SELF_TYPE" -> Class (type_to_str_clean calling_class)
+          | "SELF_TYPE" -> SELF_TYPE (type_to_str_clean calling_class)
           | _ -> Class rtype)
       | Self_Dispatch (i, elist) -> (
           let mloc, mname = i in
           (* Checks if the method exists *)
+        (* Checks if the method exists *)
+            (* Hashtbl.iter (fun (stype, name) _ -> 
+                printf "Class: %s\t method: %s\n" (type_to_str stype) name;    
+            ) m; *)
           if not (Hashtbl.mem m (Class cname, mname)) then (
             printf
               "ERROR: %d: Type-Check: unknown method %s in dispatch on %s\n"

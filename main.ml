@@ -936,7 +936,7 @@ let main () =
           (* [New] *)
           let iloc, itype = i in
           check_class_exists iloc (match itype with | "SELF_TYPE" -> cname | _ -> itype);
-          match itype with "SELF_TYPE" -> SELF_TYPE cname | _ -> Class itype)
+          match itype with "SELF_TYPE" -> (Hashtbl.find o "self") | _ -> Class itype)
       | Isvoid e ->
           (* [Isvoid] *)
           ignore (tc cname o m e);

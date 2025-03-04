@@ -50,7 +50,7 @@ if [ -n "$1" ]; then
     echo "Our Output"
     ./main "$1-ast"
     echo "Referenced Compiler"
-    cool "$1"
+    cool --type "$1"
 else
     
     for file in good/*; do

@@ -782,7 +782,7 @@ let main () =
           then (
             printf
               "ERROR: %d: Type-Check: unknown method %s in dispatch on %s\n"
-              mloc mname (type_to_str class_type);
+              mloc mname (type_to_str_clean class_type);
             exit 1);
           let meth =
             Hashtbl.find m (Class (type_to_str_clean class_type), mname)
@@ -824,10 +824,10 @@ let main () =
           let class_type = Class static_class in
           let mloc, mname = i2 in
           (* Checks if the method exists *)
-          if not (Hashtbl.mem m (class_type, mname)) then (
+          if not (Hashtbl.mem m (Class (type_to_str_clean class_type), mname)) then (
             printf
               "ERROR: %d: Type-Check: unknown method %s in dispatch on %s\n"
-              mloc mname (type_to_str class_type);
+              mloc mname (type_to_str_clean class_type);
             exit 1);
           let meth = Hashtbl.find m (class_type, mname) in
           (* first n-1 elements are formal types, n is return type*)
@@ -1012,22 +1012,27 @@ let main () =
           List.iter
             (* typename is the T_0 in the type rule. T_1 (binit) must be <= T_0 *)
             (fun (Binding ((vloc, vname), (typeloc, typename), binit)) ->
+              let typename = 
+                match typename with
+                | "SELF_TYPE" -> SELF_TYPE cname
+                | _ -> Class typename
+                in
               match binit with
               (* [Let-Init] *)
               | Some binit ->
                   let binit_type = tc cname o m binit in
-                  if not (is_subtype binit_type (Class typename)) then (
+                  if not (is_subtype binit_type typename) then (
                     printf
                       "ERROR: %d: Type-Check: initializer type %s does not \
                        conform to type %s\n"
-                      exp.loc (type_to_str binit_type) typename;
+                      exp.loc (type_to_str binit_type) (type_to_str typename);
                     exit 1)
                   else
                     (* Add to global obj env *)
                     (* printf "%s: %s %s\n" vname (type_to_str binit_type) typename; *)
-                    Hashtbl.add o vname (Class typename)
+                    Hashtbl.add o vname typename
               (* [Let-No-Init] *)
-              | None -> Hashtbl.add o vname (Class typename))
+              | None -> Hashtbl.add o vname typename)
             bindlist;
           (* Typecheck let_body with newly bound variables *)
           let body_type = tc cname o m let_body in

@@ -771,7 +771,7 @@ let main () =
             exit 1);
           Class (type_to_str_clean exp_type)
       | Dynamic_Dispatch (e1, i, elist) -> (
-          printf "dd\n";
+          (* printf "dd by %s\n" cname; *)
           let class_type = tc cname o m e1 in
           let mloc, mname = i in
           (* Checks if the method exists *)
@@ -810,9 +810,7 @@ let main () =
                 exit 1))
             elist;
           let rtype = List.hd (List.rev meth) in
-          match rtype with
-          | "SELF_TYPE" -> Class (type_to_str_clean class_type)
-          | _ -> Class rtype)
+          match rtype with "SELF_TYPE" -> class_type | _ -> Class rtype)
       | Static_Dispatch (e1, (_, static_class), i2, elist) -> (
           let calling_class = tc cname o m e1 in
           if not (is_subtype calling_class (Class static_class)) then (
@@ -859,7 +857,7 @@ let main () =
           | "SELF_TYPE" -> Class (type_to_str_clean calling_class)
           | _ -> Class rtype)
       | Self_Dispatch (i, elist) -> (
-          printf "sd\n";
+          (* printf "sd by %s\n" cname; *)
           let mloc, mname = i in
           (* Checks if the method exists *)
           (* Checks if the method exists *)

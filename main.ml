@@ -83,16 +83,16 @@ let global_meth_env : meth_env = Hashtbl.create 255
 
 (* Is x a subtype of y *)
 let is_subtype (x : static_type) (y : static_type) =
-  let x = match x with Class c -> c | SELF_TYPE c -> c in
-  let y = match y with Class c -> c | SELF_TYPE c -> c in
+  let x = match x with Class c | SELF_TYPE c -> c in
+  let y = match y with Class c | SELF_TYPE c -> c in
 
   match (x, y) with
   | x, y when x = y -> true (* same type *)
-  | x, "Object" -> true (* subtype of object *)
-  | x, y when x = "Void" && y = "Void" -> true
-  | x, y when x = "SELF_TYPE" && y = "SELF_TYPE" -> true
-  | x, y when x = "Void" && y = "SELF_TYPE" -> true
-  | x, y when x = "SELF_TYPE" && y = "Void" -> true
+  | _, "Object" -> true (* subtype of object *)
+  | "Void", "Void" -> true
+  | "SELF_TYPE", "SELF_TYPE" -> true
+  | "Void", "SELF_TYPE" -> true
+  | "SELF_TYPE", "Void" -> true
   | x, y ->
       let rec dfs_helper vert =
         (* checking inheritance map *)
@@ -103,7 +103,7 @@ let is_subtype (x : static_type) (y : static_type) =
       in
       dfs_helper y
 
-let find_parent cname inheritance =
+let find_parent cname (inheritance : (name, name) Hashtbl.t) =
   Hashtbl.fold
     (fun parent v acc -> if v = cname then Some parent else acc)
     inheritance None
@@ -337,7 +337,7 @@ let main () =
   let ast = read_cool_program () in
   close_in fin;
 
-  (* BEGIN Check for class-related errors *)
+  (* Check for class-related errors *)
   let illegal_inherit_classes = [ "Int"; "Bool"; "String" ] in
   let base_classes = [ "Int"; "Bool"; "String"; "IO"; "Object" ] in
   let user_classes = List.map (fun ((_, cname), _, _) -> cname) ast in
@@ -454,10 +454,7 @@ let main () =
       },
       "String" );
 
-  (* 
-        look for inheritance from Int 
-        look for inheritance from Undeclared Class
-    *)
+  (* More Class related type-checking *)
   List.iter
     (fun ((cloc, cname), inherits, features) ->
       (* Class named SELF_TYPE *)
@@ -642,7 +639,6 @@ let main () =
           exit 1);
         List.iter
           (fun ((imloc, imname), iformal_list, (itypeloc, imtype), _, _) ->
-            (* if (mname = imname) then begin *)
             if is_subtype (Class mname) (Class imname) then (
               (* Checking for inherited method redefinitions*)
               (* Checking for return type change *)
@@ -672,9 +668,12 @@ let main () =
                 formal_list iformal_list))
           inherited_methods)
       methods;
+
     (* If no errors are found, then add inherited features to the class map*)
+
+    (* Reset method bindings for current class and readd all methods in correct order *)
     List.iter (fun _ -> Hashtbl.remove class_map_method cname) methods;
-    (* Add methods that aren't redefined inherited methods *)
+
     List.iter
       (fun meth ->
         let (_, mname), _, _, _, _ = meth in
@@ -686,14 +685,7 @@ let main () =
                   inherited_methods))
         then Hashtbl.add class_map_method cname meth)
       (List.rev methods);
-    (* Add methods that are inherited/redefined *)
-    (*     List.iter
-      (fun meth -> let (_, mname), _, _, _, _ = meth in
-      if
-          (List.mem mname
-             (List.map (fun ((_, name), _, _, _, _) -> name) inherited_methods))
-      then Hashtbl.add class_map_method cname meth)
-      (List.rev methods); *)
+
     List.iter
       (fun meth ->
         let (mloc, mname), formals, mtype, mexp, _ = meth in
@@ -720,7 +712,6 @@ let main () =
     (fun cl -> feature_check "Object" cl)
     (Hashtbl.find_all inheritance "Object");
 
-  (* BLOCK 2 END *)
   (* Check for main() method in Main or inherited classes*)
   let main_methods = Hashtbl.find_all class_map_method "Main" in
   let method_names =
@@ -749,8 +740,7 @@ let main () =
       printf "ERROR: %d: Type-Check: unknown type %s\n" loc name;
       exit 1)
   in
-  let rec tc (cname : name) (o : obj_env) (m : meth_env) (exp : exp) :
-      static_type =
+  let rec tc cname (o : obj_env) (m : meth_env) (exp : exp) : static_type =
     let static_type =
       match exp.exp_kind with
       | Assign (i, e1) ->
@@ -1195,6 +1185,7 @@ let main () =
           Hashtbl.add global_meth_env (Class cname, mname) newFormals)
       (Hashtbl.find_all class_map_method cname)
   in
+
   (* Function to print class map *)
   let print_class_map fout sorted_classes class_map_attr output_exp =
     fprintf fout "class_map\n%d\n" (List.length all_classes);
@@ -1235,7 +1226,6 @@ let main () =
     List.iter
       (fun cname ->
         fprintf fout "%s\n" cname;
-        (* printf "Class: %s\n Methods: " cname; *)
         let methods = Hashtbl.find_all class_map_method cname in
         fprintf fout "%d\n" (List.length methods);
         set_envs cname;
@@ -1249,7 +1239,6 @@ let main () =
               meth
             in
             (* Check body return type matches method type *)
-            (* printf "%s " mname; *)
             List.iter
               (fun ((_, fmname), (_, fmtype)) ->
                 Hashtbl.add global_obj_env fmname (Class fmtype))
@@ -1257,7 +1246,6 @@ let main () =
             let o = global_obj_env in
             let m = global_meth_env in
             let body_type = tc cname o m mbody in
-            (* TODO: This is erroring on comparing return types and body types of builtin methods *)
             if
               (not (is_subtype body_type (Class returntype)))
               && not
@@ -1268,6 +1256,7 @@ let main () =
                 "ERROR: %d: Type-Check: %s does not conform to %s in method %s\n"
                 mloc (type_to_str body_type) returntype mname;
               exit 1);
+
             (* Print formals *)
             fprintf fout "%s\n%d\n" mname (List.length mformals);
             List.iter
@@ -1275,17 +1264,16 @@ let main () =
                 fprintf fout "%s\n" fmname;
                 Hashtbl.remove global_obj_env fmname)
               mformals;
-            (* If this method is inherited but NOT OVERIDDEN 
-              Output the name of the highest parent class that defined 
-              the method body expression, otherwise output current class *)
+
+            (* Output most recent definition of this method *)
             let _, _, _, _, most_recent_def = meth in
             fprintf fout "%s\n" most_recent_def;
             output_exp mbody)
-          methods
-        (* printf "\n"; *))
+          methods)
       sorted_classes
   in
 
+  (* Function to print parent map *)
   let print_parent_map fout (sorted_classes : name list) inheritance =
     fprintf fout "parent_map\n%d\n" (Hashtbl.length inheritance);
     List.iter
@@ -1298,7 +1286,9 @@ let main () =
             | None -> "BUG FOUND - find_parent cannot find parent!!!!"))
       sorted_classes
   in
-  let print_annoated_ast fout ast output_exp =
+
+  (* Function to print annotated AST map *)
+  let print_annotated_ast fout ast output_exp =
     fprintf fout "%d\n" (List.length ast);
     List.iter
       (fun ((cloc, cname), inherits, features) ->
@@ -1340,7 +1330,7 @@ let main () =
       print_class_map fout sorted_all_classes class_map_attr output_exp;
       print_impl_map fout sorted_all_classes class_map_method output_exp;
       print_parent_map fout sorted_all_classes inheritance;
-      print_annoated_ast fout ast output_exp
+      print_annotated_ast fout ast output_exp
   | [ prog; coolprog; arg ] when arg = "--class-map" ->
       print_class_map fout sorted_all_classes class_map_attr output_exp
   | [ prog; coolprog; arg ] when arg = "--parent-map" ->

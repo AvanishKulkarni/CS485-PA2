@@ -11,6 +11,8 @@ module SeenSet = Set.Make (String)
 let type_to_str t =
   match t with Class x -> x | SELF_TYPE c -> "SELF_TYPE(" ^ c ^ ")"
 
+let type_to_str_clean t = match t with Class c | SELF_TYPE c -> c
+
 type cool_program = cool_class list
 and loc = int
 and name = string
@@ -763,7 +765,7 @@ let main () =
               aloc (type_to_str exp_type) (type_to_str atype);
             exit 1);
           Class (type_to_str exp_type)
-      | Dynamic_Dispatch (e1, i, elist) ->
+      | Dynamic_Dispatch (e1, i, elist) -> (
           let class_type = tc cname o m e1 in
           let mloc, mname = i in
           (* Checks if the method exists *)
@@ -796,9 +798,10 @@ let main () =
                 exit 1))
             elist;
           let rtype = List.hd (List.rev meth) in
-          if rtype = "SELF_TYPE" then SELF_TYPE (type_to_str class_type)
-          else Class rtype
-      | Static_Dispatch (e1, (_, static_class), i2, elist) ->
+          match rtype with
+          | "SELF_TYPE" -> Class (type_to_str_clean class_type)
+          | _ -> Class rtype)
+      | Static_Dispatch (e1, (_, static_class), i2, elist) -> (
           let calling_class = tc cname o m e1 in
           if not (is_subtype calling_class (Class static_class)) then (
             printf
@@ -840,9 +843,10 @@ let main () =
                 exit 1))
             elist;
           let rtype = List.hd (List.rev meth) in
-          if rtype = "SELF_TYPE" then SELF_TYPE (type_to_str calling_class)
-          else Class rtype
-      | Self_Dispatch (i, elist) ->
+          match rtype with
+          | "SELF_TYPE" -> Class (type_to_str_clean calling_class)
+          | _ -> Class rtype)
+      | Self_Dispatch (i, elist) -> (
           let mloc, mname = i in
           (* Checks if the method exists *)
           if not (Hashtbl.mem m (Class cname, mname)) then (
@@ -874,7 +878,7 @@ let main () =
                 exit 1))
             elist;
           let rtype = List.hd (List.rev meth) in
-          if rtype = "SELF_TYPE" then SELF_TYPE cname else Class rtype
+          match rtype with "SELF_TYPE" -> SELF_TYPE cname | _ -> Class rtype)
       | If (e1, e2, e3) ->
           (* [If] *)
           let predtype = tc cname o m e1 in

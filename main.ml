@@ -935,7 +935,7 @@ let main () =
       | New i -> (
           (* [New] *)
           let iloc, itype = i in
-          check_class_exists iloc itype;
+          check_class_exists iloc (match itype with | "SELF_TYPE" -> cname | _ -> itype);
           match itype with "SELF_TYPE" -> SELF_TYPE cname | _ -> Class itype)
       | Isvoid e ->
           (* [Isvoid] *)
@@ -1273,9 +1273,14 @@ let main () =
                  (returntype = "SELF_TYPE" && is_subtype body_type (Class cname)))
               && not (is_subtype body_type (Class returntype))
             then (
+              let returntype =
+                match returntype with
+                | "SELF_TYPE" -> SELF_TYPE cname
+                | _ -> Class returntype
+                in
               printf
                 "ERROR: %d: Type-Check: %s does not conform to %s in method %s\n"
-                mloc (type_to_str body_type) returntype mname;
+                mloc (type_to_str body_type) (type_to_str returntype) mname;
               exit 1);
 
             (* Print formals *)

@@ -85,7 +85,7 @@ let global_meth_env : meth_env = Hashtbl.create 255
 let is_subtype (x : static_type) (y : static_type) =
   let x = match x with Class c | SELF_TYPE c -> c in
   let y = match y with Class c | SELF_TYPE c -> c in
-    (* printf "is_subtype x: %s\t y: %s\n" x y; *)
+  (* printf "is_subtype x: %s\t y: %s\n" x y; *)
   match (x, y) with
   | x, y when x = y -> true (* same type *)
   | _, "Object" -> true (* subtype of object *)
@@ -707,24 +707,24 @@ let main () =
       (fun attr -> Hashtbl.add class_map_attr cname attr)
       (List.rev inherited_attributes);
     List.iter
-    (fun ((_, mname), formals, (_, rtype), _, _) ->
-    let newFormals = List.map (fun (_, (_, ftype)) -> ftype) formals in
-    let newFormals = newFormals @ [ rtype ] in
-    if not (Hashtbl.mem global_meth_env (Class cname, mname)) then
-        Hashtbl.add global_meth_env (Class cname, mname) newFormals)
-    (Hashtbl.find_all class_map_method cname);
+      (fun ((_, mname), formals, (_, rtype), _, _) ->
+        let newFormals = List.map (fun (_, (_, ftype)) -> ftype) formals in
+        let newFormals = newFormals @ [ rtype ] in
+        if not (Hashtbl.mem global_meth_env (Class cname, mname)) then
+          Hashtbl.add global_meth_env (Class cname, mname) newFormals)
+      (Hashtbl.find_all class_map_method cname);
     let child_classes = Hashtbl.find_all inheritance cname in
     List.iter (fun cl -> feature_check cname cl) child_classes
   in
   List.iter
     (fun cl -> feature_check "Object" cl)
     (Hashtbl.find_all inheritance "Object");
-    (* Need to add object's methods since its not actually checked in feature_check*)
-    List.iter
+  (* Need to add object's methods since its not actually checked in feature_check*)
+  List.iter
     (fun ((_, mname), formals, (_, rtype), _, _) ->
-    let newFormals = List.map (fun (_, (_, ftype)) -> ftype) formals in
-    let newFormals = newFormals @ [ rtype ] in
-    if not (Hashtbl.mem global_meth_env (Class "Object", mname)) then
+      let newFormals = List.map (fun (_, (_, ftype)) -> ftype) formals in
+      let newFormals = newFormals @ [ rtype ] in
+      if not (Hashtbl.mem global_meth_env (Class "Object", mname)) then
         Hashtbl.add global_meth_env (Class "Object", mname) newFormals)
     (Hashtbl.find_all class_map_method "Object");
   (* Check for main() method in Main or inherited classes*)
@@ -771,18 +771,22 @@ let main () =
             exit 1);
           Class (type_to_str_clean exp_type)
       | Dynamic_Dispatch (e1, i, elist) -> (
+          printf "dd\n";
           let class_type = tc cname o m e1 in
           let mloc, mname = i in
           (* Checks if the method exists *)
-            (* Hashtbl.iter (fun (stype, name) _ -> 
+          (* Hashtbl.iter (fun (stype, name) _ -> 
                 printf "Class: %s\t method: %s\n" (type_to_str stype) name;    
             ) m; *)
-          if not (Hashtbl.mem m (Class (type_to_str_clean class_type), mname)) then (
+          if not (Hashtbl.mem m (Class (type_to_str_clean class_type), mname))
+          then (
             printf
               "ERROR: %d: Type-Check: unknown method %s in dispatch on %s\n"
               mloc mname (type_to_str class_type);
             exit 1);
-          let meth = Hashtbl.find m (Class (type_to_str_clean class_type), mname) in
+          let meth =
+            Hashtbl.find m (Class (type_to_str_clean class_type), mname)
+          in
           (* first n-1 elements are formal types, n is return type*)
           (* Checks if number of arguments matches with number of formals *)
           if List.length elist <> List.length meth - 1 then (
@@ -852,13 +856,14 @@ let main () =
             elist;
           let rtype = List.hd (List.rev meth) in
           match rtype with
-          | "SELF_TYPE" -> SELF_TYPE (type_to_str_clean calling_class)
+          | "SELF_TYPE" -> Class (type_to_str_clean calling_class)
           | _ -> Class rtype)
       | Self_Dispatch (i, elist) -> (
+          printf "sd\n";
           let mloc, mname = i in
           (* Checks if the method exists *)
-        (* Checks if the method exists *)
-            (* Hashtbl.iter (fun (stype, name) _ -> 
+          (* Checks if the method exists *)
+          (* Hashtbl.iter (fun (stype, name) _ -> 
                 printf "Class: %s\t method: %s\n" (type_to_str stype) name;    
             ) m; *)
           if not (Hashtbl.mem m (Class cname, mname)) then (
@@ -891,7 +896,9 @@ let main () =
             elist;
           let rtype = List.hd (List.rev meth) in
           (* printf "self_dispatch class: %s\t method: %s\t lineNum: %d\t rtype: %s\n" cname mname mloc rtype; *)
-          match rtype with "SELF_TYPE" -> SELF_TYPE cname | _ -> Class rtype)
+          match rtype with
+          | "SELF_TYPE" -> SELF_TYPE cname
+          | _ -> Class rtype)
       | If (e1, e2, e3) ->
           (* [If] *)
           let predtype = tc cname o m e1 in
@@ -1199,7 +1206,7 @@ let main () =
       (fun ((_, aname), (_, atype), _) ->
         Hashtbl.add global_obj_env aname (Class atype))
       (Hashtbl.find_all class_map_attr cname);
-    Hashtbl.add global_obj_env "self" (SELF_TYPE cname);
+    Hashtbl.add global_obj_env "self" (SELF_TYPE cname)
   in
 
   (* Function to print class map *)
@@ -1264,10 +1271,9 @@ let main () =
             let body_type = tc cname o m mbody in
             (* printf "Class: %s, Method: %s, BodyType: %s, Return Type: %s\n" cname mname (type_to_str body_type) returntype; *)
             if
-              not
-                (returntype = "SELF_TYPE"
-                && is_subtype body_type (Class cname))
-                && not (is_subtype body_type (Class returntype))
+              (not
+                 (returntype = "SELF_TYPE" && is_subtype body_type (Class cname)))
+              && not (is_subtype body_type (Class returntype))
             then (
               printf
                 "ERROR: %d: Type-Check: %s does not conform to %s in method %s\n"

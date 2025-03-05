@@ -83,6 +83,9 @@ let global_meth_env : meth_env = Hashtbl.create 255
 
 (* Is x a subtype of y *)
 let is_subtype (x : static_type) (y : static_type) =
+  match (x, y) with 
+  | Class c, SELF_TYPE s when c = s -> false
+  | x, y ->
   let x = match x with Class c | SELF_TYPE c -> c in
   let y = match y with Class c | SELF_TYPE c -> c in
   (* printf "is_subtype x: %s\t y: %s\n" x y; *)
@@ -1055,11 +1058,6 @@ let main () =
                     tloc tname;
                   exit 1)
                 else (
-                  if not (List.mem tname all_classes) then (
-                    printf
-                      "ERROR: %d: Type-Check: unknown type %s\n"
-                      loc tname;
-                  );
                   Hashtbl.add o name (Class tname);
                   if tname = "SELF_TYPE" then (
                     printf
@@ -1073,6 +1071,12 @@ let main () =
                        is not allowed\n"
                       loc name;
                     exit 1);
+                    if not (List.mem tname all_classes) then (
+                      printf
+                        "ERROR: %d: Type-Check: unknown type %s\n"
+                        loc tname;
+                        exit 1;
+                    );
                   let branchType = tc cname o m exp in
                   Hashtbl.remove o name;
                   seenTypes := SeenSet.add tname !seenTypes;

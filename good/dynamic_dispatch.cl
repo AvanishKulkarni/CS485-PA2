@@ -1,12 +1,12 @@
 class A {
     print(x: Int, y: Int) : Int {
-        x+1
+        x+y
     };
 };
 
 class B inherits A {
     print(x: Int, y: Int) : Int {
-        x+2
+        x+y*2
     };
 };
 

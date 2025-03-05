@@ -782,7 +782,8 @@ let main () =
           then (
             printf
               "ERROR: %d: Type-Check: unknown method %s in dispatch on %s\n"
-              mloc mname (type_to_str_clean class_type);
+              mloc mname
+              (type_to_str_clean class_type);
             exit 1);
           let meth =
             Hashtbl.find m (Class (type_to_str_clean class_type), mname)
@@ -824,10 +825,12 @@ let main () =
           let class_type = Class static_class in
           let mloc, mname = i2 in
           (* Checks if the method exists *)
-          if not (Hashtbl.mem m (Class (type_to_str_clean class_type), mname)) then (
+          if not (Hashtbl.mem m (Class (type_to_str_clean class_type), mname))
+          then (
             printf
               "ERROR: %d: Type-Check: unknown method %s in dispatch on %s\n"
-              mloc mname (type_to_str_clean class_type);
+              mloc mname
+              (type_to_str_clean class_type);
             exit 1);
           let meth = Hashtbl.find m (class_type, mname) in
           (* first n-1 elements are formal types, n is return type*)
@@ -935,8 +938,11 @@ let main () =
       | New i -> (
           (* [New] *)
           let iloc, itype = i in
-          check_class_exists iloc (match itype with | "SELF_TYPE" -> cname | _ -> itype);
-          match itype with "SELF_TYPE" -> (Hashtbl.find o "self") | _ -> Class itype)
+          check_class_exists iloc
+            (match itype with "SELF_TYPE" -> cname | _ -> itype);
+          match itype with
+          | "SELF_TYPE" -> Hashtbl.find o "self"
+          | _ -> Class itype)
       | Isvoid e ->
           (* [Isvoid] *)
           ignore (tc cname o m e);
@@ -1012,11 +1018,11 @@ let main () =
           List.iter
             (* typename is the T_0 in the type rule. T_1 (binit) must be <= T_0 *)
             (fun (Binding ((vloc, vname), (typeloc, typename), binit)) ->
-              let typename = 
+              let typename =
                 match typename with
                 | "SELF_TYPE" -> SELF_TYPE cname
                 | _ -> Class typename
-                in
+              in
               match binit with
               (* [Let-Init] *)
               | Some binit ->
@@ -1282,7 +1288,7 @@ let main () =
                 match returntype with
                 | "SELF_TYPE" -> SELF_TYPE cname
                 | _ -> Class returntype
-                in
+              in
               printf
                 "ERROR: %d: Type-Check: %s does not conform to %s in method %s\n"
                 mloc (type_to_str body_type) (type_to_str returntype) mname;

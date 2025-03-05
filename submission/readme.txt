@@ -1,0 +1,7 @@
+8 — thorough discussion of design decisions (e.g., handling of the class hierarchy, case and new and dispatch) and choice of test cases; a few paragraphs of coherent English sentences should be fine
+
+Our typechecker split the code analysis into two distinct passes, one focusing on classes and the second focusing on expressions.
+
+We represented classes as strings, ignoring SELF_TYPE other than where it was illegal. The class check portion also handled all inheritance issues redefinition issues. The class hierarchy was handled by a Hashtbl mapping a parent to a child. Hashtbl.find_all found all children of a provided parent. This portion also added methods and attributes associated with classes into Hashtbls. We had a Hashtbl that mapped a class name (string) to an attribute (name, type, optional assignment) and a Hashtbl that mapped a class name to a method (name, formal list, declared return type, body expression (default being None), and class name most recently defined in). Class methods and attributes were all added to these structures. 
+
+The second pass iterated through all the information collected by the first pass, typechecking every feature (attribute, method) for every Class. We implemented a lub and is_subtype function which used the information from the first pass. We made an object and method environment based on the definition in the CRM with two new Hashtbls for this pass, and 

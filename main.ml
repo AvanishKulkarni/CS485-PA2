@@ -1055,6 +1055,11 @@ let main () =
                     tloc tname;
                   exit 1)
                 else (
+                  if not (List.mem tname all_classes) then (
+                    printf
+                      "ERROR: %d: Type-Check: unknown type %s\n"
+                      loc tname;
+                  );
                   Hashtbl.add o name (Class tname);
                   if tname = "SELF_TYPE" then (
                     printf

@@ -74,7 +74,7 @@ let class_map_method :
     (name, id * formal list * cool_type * exp * name) Hashtbl.t =
   Hashtbl.create 255
 
-(*defined this way so we can make arbitrary new object_envs *)
+(*defined this way so we can make arbitrary new object_envs, used when type checking expressions *)
 type obj_env = (name, static_type) Hashtbl.t
 type meth_env = (static_type * name, name list) Hashtbl.t
 
@@ -84,7 +84,7 @@ let global_meth_env : meth_env = Hashtbl.create 255
 (* Is x a subtype of y *)
 let is_subtype (x : static_type) (y : static_type) =
   match (x, y) with 
-  | Class c, SELF_TYPE s when c = s -> false
+  | Class c, SELF_TYPE s -> false
   | x, y ->
   let x = match x with Class c | SELF_TYPE c -> c in
   let y = match y with Class c | SELF_TYPE c -> c in
@@ -111,6 +111,7 @@ let find_parent cname (inheritance : (name, name) Hashtbl.t) =
     (fun parent v acc -> if v = cname then Some parent else acc)
     inheritance None
 
+(* Finds the least upper bound of two types *)
 let least_upper_bound (x : static_type) (y : static_type) =
   match (x, y) with
   | Class "Object", _ -> Class "Object"
@@ -458,7 +459,7 @@ let main () =
       },
       "String" );
 
-  (* More Class related type-checking *)
+  (* Going through the AST and type checking classes and add their features to the appropriate tables for later use *)
   List.iter
     (fun ((cloc, cname), inherits, features) ->
       (* Class named SELF_TYPE *)
@@ -501,6 +502,7 @@ let main () =
             printf "ERROR: %d: Type-Check: class %s inherits from %s\n" iloc
               cname iname;
             exit 1);
+          (* Checks if the inherited class is a valid class *)
           if not (List.mem iname all_classes) then (
             printf
               "ERROR: %d: Type-Check: class %s inherits from unknown class %s\n"
@@ -599,22 +601,25 @@ let main () =
     (* Type checking attributes *)
     List.iter
       (fun ((aloc, name), (tloc, tname), _) ->
-        (* Checks for attributes called self *)
+        (* Checks if the type exists (SELF_TYPE is allowed)*)
         if (not (List.mem tname all_classes)) && tname <> "SELF_TYPE" then (
           printf
             "ERROR: %d: Type-Check: class %s has attribute %s with unknown \
              type %s\n"
             tloc cname name tname;
           exit 1);
+        (* Checks for attributes called self *)
         if name = "self" then (
           printf "ERROR: %d: Type-Check: class %s has an attribute named self\n"
             aloc cname;
           exit 1);
+          (* Checks if an attribute is redefined in a child class *)
         if List.mem name inherited_attributes_names then (
           printf "ERROR: %d: Type-Check: class %s redefines attribute %s\n" aloc
             cname name;
           exit 1))
       attributes;
+    (* Type checking methods *)
     List.iter
       (fun ((mloc, mname), formal_list, (typeloc, mtype), _, _) ->
         (* Checks each formal parameter to see if the type exists *)
@@ -626,6 +631,7 @@ let main () =
                  parameter of unknown type %s\n"
                 ftloc cname mname ftype;
               exit 1);
+            (* Can't have self as a formal name *)
             if fname = "self" then (
               printf
                 "ERROR: %d: Type-Check: class %s has method %s with formal \
@@ -634,16 +640,17 @@ let main () =
               exit 1))
           formal_list;
 
-        (* Checks the return type to see if the type exists *)
+        (* Checks the return type to see if the type exists (SELF_TYPE is allowed)*)
         if (not (List.mem mtype all_classes)) && mtype <> "SELF_TYPE" then (
           printf
             "ERROR: %d: Type-Check: class %s has method %s with unknown return \
              type %s\n"
             typeloc cname mname mtype;
           exit 1);
+        (* Checking inherited methods against current method*)
         List.iter
           (fun ((imloc, imname), iformal_list, (itypeloc, imtype), _, _) ->
-            if is_subtype (Class mname) (Class imname) then (
+            if mname = imname then (
               (* Checking for inherited method redefinitions*)
               (* Checking for return type change *)
               if mtype <> imtype then (
@@ -677,10 +684,12 @@ let main () =
 
     (* Reset method bindings for current class and readd all methods in correct order *)
     List.iter (fun _ -> Hashtbl.remove class_map_method cname) methods;
-
+    (* Order has to be Inherited/Redfined methods then new methods*)
+    (* Since a Hashtbl.find_all returns a list in reverse inserted order, we use List.rev while inserting to maintain the order*)
     List.iter
       (fun meth ->
         let (_, mname), _, _, _, _ = meth in
+        (* If the method is a redefinition of an inherited method then it has to be added later*)
         if
           not
             (List.mem mname
@@ -689,7 +698,7 @@ let main () =
                   inherited_methods))
         then Hashtbl.add class_map_method cname meth)
       (List.rev methods);
-
+    (* Adding inherited methods to the class map *)
     List.iter
       (fun meth ->
         let (mloc, mname), formals, mtype, mexp, _ = meth in
@@ -699,16 +708,20 @@ let main () =
                (List.map (fun ((_, name), _, _, _, _) -> name) methods))
         then Hashtbl.add class_map_method cname meth
         else
+          (* If the method was redefinied, then the new method has to be placed where the old method would've gone in the list *)
           Hashtbl.add class_map_method cname
             (List.find (fun ((_, iname), _, _, _, _) -> mname = iname) methods))
       (List.rev inherited_methods);
+    (* Resetting attributes class map before adding *)
     List.iter (fun _ -> Hashtbl.remove class_map_attr cname) attributes;
+    (* Adding current attributes first in reverse order to keep the sorted attribute order when using Hashtbl.find_all*)
     List.iter
       (fun attr -> Hashtbl.add class_map_attr cname attr)
       (List.rev attributes);
     List.iter
       (fun attr -> Hashtbl.add class_map_attr cname attr)
       (List.rev inherited_attributes);
+    (*Adding all the new methods to the method environment *)
     List.iter
       (fun ((_, mname), formals, (_, rtype), _, _) ->
         let newFormals = List.map (fun (_, (_, ftype)) -> ftype) formals in
@@ -716,9 +729,12 @@ let main () =
         if not (Hashtbl.mem global_meth_env (Class cname, mname)) then
           Hashtbl.add global_meth_env (Class cname, mname) newFormals)
       (Hashtbl.find_all class_map_method cname);
+
+    (* Type checking eacing of the child classes of the current class *)
     let child_classes = Hashtbl.find_all inheritance cname in
     List.iter (fun cl -> feature_check cname cl) child_classes
   in
+  (* Type checking each class with Object as the parent *)
   List.iter
     (fun cl -> feature_check "Object" cl)
     (Hashtbl.find_all inheritance "Object");
@@ -730,6 +746,7 @@ let main () =
       if not (Hashtbl.mem global_meth_env (Class "Object", mname)) then
         Hashtbl.add global_meth_env (Class "Object", mname) newFormals)
     (Hashtbl.find_all class_map_method "Object");
+
   (* Check for main() method in Main or inherited classes*)
   let main_methods = Hashtbl.find_all class_map_method "Main" in
   let method_names =
@@ -738,6 +755,7 @@ let main () =
   if not (List.mem "main" method_names) then (
     printf "ERROR: 0: Type-Check: class Main method main not found\n";
     exit 1);
+
   (* Checking to see if the main method has zero parameters *)
   List.iter
     (fun ((_, name), formals, _, _, _) ->
@@ -747,12 +765,14 @@ let main () =
            found\n";
         exit 1))
     (Hashtbl.find_all class_map_method "Main");
+
   let all_classes = List.rev !visited in
-  (* top sorted *)
+  (* top sorted from inheritance cycle checking *)
 
   (* Class Error checking complete *)
 
   (* Begin Expression type-checking *)
+  (* function to see if a type exists *)
   let check_class_exists loc name =
     if not (List.mem name all_classes) then (
       printf "ERROR: %d: Type-Check: unknown type %s\n" loc name;
@@ -766,6 +786,7 @@ let main () =
           let aloc, aname = i in
           let atype = Hashtbl.find o aname in
           let exp_type = tc cname o m e1 in
+          (* Checks if the expression conforms to the attribute type *)
           if not (is_subtype exp_type atype) then (
             printf
               "ERROR: %d: Type-Check: %s does not conform to %s in initialized \
@@ -898,6 +919,7 @@ let main () =
                   (type_to_str formal_type);
                 exit 1))
             elist;
+            (* Return type is the last element *)
           let rtype = List.hd (List.rev meth) in
           (* printf "self_dispatch class: %s\t method: %s\t lineNum: %d\t rtype: %s\n" cname mname mloc rtype; *)
           match rtype with
@@ -942,12 +964,13 @@ let main () =
           (* [New] *)
           let iloc, itype = i in
           check_class_exists iloc
-            (match itype with "SELF_TYPE" -> cname | _ -> itype);
+            (match itype with "SELF_TYPE" -> cname | _ -> itype); (*If its self_type we have to see if the current class exists*)
           match itype with
           | "SELF_TYPE" -> Hashtbl.find o "self"
           | _ -> Class itype)
       | Isvoid e ->
           (* [Isvoid] *)
+          (* Don't need to save the results of the type check *)
           ignore (tc cname o m e);
           Class "Bool"
       | Plus (e1, e2) | Minus (e1, e2) | Times (e1, e2) | Divide (e1, e2) ->
@@ -1109,7 +1132,7 @@ let main () =
   (* Emit CL-TYPE File *)
   let cltname = Filename.chop_extension fname ^ ".cl-type" in
   let fout = open_out cltname in
-
+  (* Outputting expressions *)
   let rec output_exp e =
     fprintf fout "%d\n" e.loc;
     (* Output type annotation *)
@@ -1216,14 +1239,16 @@ let main () =
           elemlist
     | Internal (m, c, name) -> fprintf fout "internal\n%s.%s\n" c name
   in
-
-  let sorted_all_classes = List.sort compare all_classes in
+ (* Sorting classes for outputting the class map, implementation map, parent map, and annoated ast*)
+  let sorted_all_classes = List.sort compare all_classes in 
+  (* Used later for setting the object environements for each class when the methods are used *)
   let set_envs cname =
     Hashtbl.clear global_obj_env;
     List.iter
       (fun ((_, aname), (_, atype), _) ->
         Hashtbl.add global_obj_env aname (Class atype))
       (Hashtbl.find_all class_map_attr cname);
+      (* Also need to add self to the obj env as a self_type *)
     Hashtbl.add global_obj_env "self" (SELF_TYPE cname)
   in
 
@@ -1279,7 +1304,7 @@ let main () =
                   src_class ) =
               meth
             in
-            (* Check body return type matches method type *)
+            (* adding formal arguments to the obj env *)
             List.iter
               (fun ((_, fmname), (_, fmtype)) ->
                 Hashtbl.add global_obj_env fmname (Class fmtype))
@@ -1288,6 +1313,7 @@ let main () =
             let m = global_meth_env in
             let body_type = tc cname o m mbody in
             (* printf "Class: %s, Method: %s, BodyType: %s, Return Type: %s\n" cname mname (type_to_str body_type) returntype; *)
+            (* Check body return type matches method type *)
             if
               (not
                  (returntype = "SELF_TYPE" && is_subtype body_type (Class cname)))
@@ -1303,7 +1329,7 @@ let main () =
                 mloc (type_to_str body_type) (type_to_str returntype) mname;
               exit 1);
 
-            (* Print formals *)
+            (* Print formals and remove formals from obj env *)
             fprintf fout "%s\n%d\n" mname (List.length mformals);
             List.iter
               (fun ((_, fmname), _) ->

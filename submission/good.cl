@@ -10,7 +10,7 @@ class Main inherits IO {
         while test < 3 loop
             test <- test + 1
         pool;
-    i : Int <- if true then 2 else 4 fi;
+    i : Object <- if true then "hello" else 1 fi;
     j: Int;
     k : String <- "Hello";
     l : Int <- 1;
@@ -26,13 +26,18 @@ class Main inherits IO {
         out_string(self.type_name().substr((new Int), 1).concat("\n"))
     };
 
-    main() : Object {{
+    main() : SELF_TYPE {{
         -- dynamic dispatch 
         out_int((new A).print(5, (new Int)));
         out_string("\n");
         
         out_int((new B).print(1, (new Int)));
         out_string("\n");
+
+        let erm : A <- new B in {
+            out_int(erm.print(999, 0));
+            out_string("\n");
+        };
 
         -- static dispatch
         out_int(((new B)@A.print(1, (new Int))));
@@ -42,7 +47,9 @@ class Main inherits IO {
         print();
 
         -- inherited methods
-        (new C).print(0, 0);
+        (new C).print(4, 0);
+
+        self;
     }};
 
 };
@@ -63,15 +70,21 @@ class B inherits A {
 class C inherits B {
     y: Int <- 5;
 
+    helper(x: Int) : Object {{
+        if x < 0 then {
+            out_string("");
+        } else {
+            let len: Int <- "glory to mankind".length() in {
+                out_string("glory to mankind".substr(x, len - 2*x).concat("\n"));
+                helper(x - 1);
+            };
+        } fi;
+    }};
+
     print(x: Int, y: Int) : Int {{
         out_string("super earth... our home\n");
-        1;
 
-        if 0 < y then {
-            print(0, 0);
-            y <- y - 1;
-        } else 
-            (new Int)
-        fi;
+        helper(x);
+        1;
     }};
 };
